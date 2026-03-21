@@ -59,9 +59,28 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
-    - _LengthMulty: 5
+    - _AmbientStrength: 1
+    - _EnableGradient: 1
+    - _EnableStripes: 1
+    - _GradientBlend: 0.5
+    - _GradientOffset: 0
+    - _GradientScale: 1
+    - _LengthMulty: 10
+    - _NormalStrength: 0.13
     - _QueueControl: 0
     - _QueueOffset: 0
-    m_Colors: []
+    - _ShadowStrength: 0.977
+    - _Smoothness: 0.183
+    - _SpecularPower: 79.4
+    - _StripeAngle: 0
+    - _StripeBlend: 0.196
+    - _StripeDensity: 23.4
+    - _StripeWidth: 0.144
+    m_Colors:
+    - _BaseTint: {r: 1, g: 1, b: 1, a: 1}
+    - _GradientColorA: {r: 0.2, g: 0.5, b: 0.2, a: 1}
+    - _GradientColorB: {r: 0.9, g: 0.85, b: 0.35, a: 1}
+    - _SpecularColor: {r: 0, g: 0, b: 0, a: 1}
+    - _StripeColor: {r: 0.95, g: 0.95, b: 0.95, a: 1}
   m_BuildTextureStacks: []
   m_AllowLocking: 1
