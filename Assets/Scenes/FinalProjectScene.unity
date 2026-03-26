@@ -4801,7 +4801,7 @@ MonoBehaviour:
   brushFalloff: 0.5
   heightSmoothness: 0.5
   continuousHeightPaintRate: 8
-  brushColor: {r: 1, g: 0.87120354, b: 0, a: 1}
+  brushColor: {r: 1, g: 0, b: 0, a: 1}
   paintContinuouslyWhileHolding: 0
   brushUVProperty: _BrushUV
   brushRadiusProperty: _BrushRadius
