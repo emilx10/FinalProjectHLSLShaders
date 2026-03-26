@@ -4799,19 +4799,29 @@ MonoBehaviour:
   brushRadius: 0.05
   brushStrength: 0.983
   brushFalloff: 0.5
+  heightSmoothness: 0.5
+  continuousHeightPaintRate: 8
   brushColor: {r: 1, g: 0.87120354, b: 0, a: 1}
   paintContinuouslyWhileHolding: 0
   brushUVProperty: _BrushUV
   brushRadiusProperty: _BrushRadius
   brushStrengthProperty: _BrushStrength
   brushFalloffProperty: _BrushFalloff
+  heightSmoothnessProperty: _HeightSmoothness
   brushColorProperty: _BrushColor
   modeProperty: _Mode
   lengthMapProperty: _LengthMap
   colorMapProperty: _ColorMap
+  lengthMultiplierProperty: _LengthMulty
   clearMapsOnAwake: 1
   initialLengthColor: {r: 0, g: 0, b: 0, a: 1}
   initialColorColor: {r: 1, g: 1, b: 1, a: 1}
+  useHeightAwarePicking: 1
+  heightRaymarchSteps: 64
+  heightRaymarchRefinementSteps: 6
+  cutVFXPrefab: {fileID: 3851491340999779725, guid: dbd2c5e0e43eb7e4781a427c9cbcc5ef, type: 3}
+  growVFXPrefab: {fileID: 934922325857151047, guid: 280a66fcb40aacb45ba86529520ac5b4, type: 3}
+  colorVFXPrefab: {fileID: 2233391010986361111, guid: 4c65fe11494599941b40ae7d30b21b87, type: 3}
 --- !u!4 &1875752439
 Transform:
   m_ObjectHideFlags: 0

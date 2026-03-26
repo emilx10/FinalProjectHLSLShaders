@@ -54,6 +54,11 @@ public class PaintController : MonoBehaviour
     [SerializeField, Range(8, 256)] private int heightRaymarchSteps = 64;
     [SerializeField, Range(2, 16)] private int heightRaymarchRefinementSteps = 6;
 
+    [Header("VFX")]
+    [SerializeField] private GameObject cutVFXPrefab;
+    [SerializeField] private GameObject growVFXPrefab;
+    [SerializeField] private GameObject colorVFXPrefab;
+
     private Texture2D lengthMapReadback;
     private bool lengthMapReadbackDirty = true;
 
@@ -133,8 +138,50 @@ public class PaintController : MonoBehaviour
             return;
 
         Vector2 uv = ResolvePaintUV(hit, ray);
+
         PaintAtUV(uv, paintScale);
-        Debug.Log("UV: " + uv);
+
+        Vector3 worldPos = hit.point;
+
+        SpawnVFX(worldPos);
+    }
+
+    private void SpawnVFX(Vector3 position)
+    {
+        GameObject prefab = null;
+
+        switch (currentTool)
+        {
+            case ToolMode.Cut:
+                prefab = cutVFXPrefab;
+                break;
+
+            case ToolMode.Grow:
+                prefab = growVFXPrefab;
+                break;
+
+            case ToolMode.Color:
+                prefab = colorVFXPrefab;
+                break;
+        }
+
+        if (prefab != null)
+        {
+            GameObject vfx = Instantiate(prefab, position, Quaternion.identity);
+
+            // If it's the color tool, set the particle color
+            if (currentTool == ToolMode.Color)
+            {
+                ParticleSystem ps = vfx.GetComponent<ParticleSystem>();
+                if (ps != null)
+                {
+                    var main = ps.main;
+                    main.startColor = brushColor;  // <-- Set color to the current brush color
+                }
+            }
+
+            Destroy(vfx, 2f);
+        }
     }
 
     public void PaintAtUV(Vector2 uv)
@@ -417,5 +464,40 @@ public class PaintController : MonoBehaviour
     {
         if (colorMap != null)
             ClearRenderTexture(colorMap, color);
+    }
+
+    private Vector3 UVToWorldPosition(Vector2 uv, RaycastHit hit)
+    {
+        Renderer renderer = hit.collider.GetComponent<Renderer>();
+        if (renderer == null)
+            return hit.point;
+
+        MeshCollider meshCollider = hit.collider as MeshCollider;
+        if (meshCollider == null || meshCollider.sharedMesh == null)
+            return hit.point;
+
+        Mesh mesh = meshCollider.sharedMesh;
+        Vector3[] vertices = mesh.vertices;
+        int[] triangles = mesh.triangles;
+        Vector2[] uvs = mesh.uv;
+
+        int triangleIndex = hit.triangleIndex * 3;
+
+        Vector3 v0 = vertices[triangles[triangleIndex]];
+        Vector3 v1 = vertices[triangles[triangleIndex + 1]];
+        Vector3 v2 = vertices[triangles[triangleIndex + 2]];
+
+        Vector2 uv0 = uvs[triangles[triangleIndex]];
+        Vector2 uv1 = uvs[triangles[triangleIndex + 1]];
+        Vector2 uv2 = uvs[triangles[triangleIndex + 2]];
+
+        Vector3 bary = hit.barycentricCoordinate;
+
+        Vector3 worldPos =
+            hit.collider.transform.TransformPoint(
+                v0 * bary.x + v1 * bary.y + v2 * bary.z
+            );
+
+        return worldPos;
     }
 }
