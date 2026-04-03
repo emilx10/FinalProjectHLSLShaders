@@ -1,0 +1,67 @@
+#pragma kernel CompareHairMaps
+
+Texture2D<float4> _PlayerLengthMap;
+Texture2D<float4> _PlayerColorMap;
+Texture2D<float4> _TargetLengthMap;
+Texture2D<float4> _TargetColorMap;
+
+RWTexture2D<float4> _MismatchOverlay;
+RWStructuredBuffer<uint> _GroupScores;
+
+SamplerState sampler_LinearClamp;
+
+int _Width;
+int _Height;
+int _GroupCountX;
+
+float _LengthWeight;
+float _ColorWeight;
+float _LengthTolerance;
+float _ColorTolerance;
+
+groupshared uint _SharedGroupScore;
+
+[numthreads(8, 8, 1)]
+void CompareHairMaps(uint3 dispatchThreadId : SV_DispatchThreadID, uint3 groupThreadId : SV_GroupThreadID, uint3 groupId : SV_GroupID)
+{
+    if (groupThreadId.x == 0 && groupThreadId.y == 0 && groupThreadId.z == 0)
+    {
+        _SharedGroupScore = 0;
+    }
+
+    GroupMemoryBarrierWithGroupSync();
+
+    if (dispatchThreadId.x < (uint)_Width && dispatchThreadId.y < (uint)_Height)
+    {
+        float2 uv = (float2(dispatchThreadId.xy) + 0.5) / float2(_Width, _Height);
+
+        float4 playerLength = _PlayerLengthMap.SampleLevel(sampler_LinearClamp, uv, 0);
+        float4 targetLength = _TargetLengthMap.SampleLevel(sampler_LinearClamp, uv, 0);
+
+        float4 playerColor = _PlayerColorMap.SampleLevel(sampler_LinearClamp, uv, 0);
+        float4 targetColor = _TargetColorMap.SampleLevel(sampler_LinearClamp, uv, 0);
+
+        float lengthDiff = abs(playerLength.r - targetLength.r);
+        float3 colorDelta = abs(playerColor.rgb - targetColor.rgb);
+        float colorDiff = (colorDelta.r + colorDelta.g + colorDelta.b) / 3.0;
+
+        float lengthScore = 1.0 - saturate(lengthDiff / max(_LengthTolerance, 0.0001));
+        float colorScore = 1.0 - saturate(colorDiff / max(_ColorTolerance, 0.0001));
+
+        float totalWeight = max(_LengthWeight + _ColorWeight, 0.0001);
+        float combinedScore = saturate((lengthScore * _LengthWeight + colorScore * _ColorWeight) / totalWeight);
+
+        uint contribution = (uint)round(combinedScore * 10.0);
+        InterlockedAdd(_SharedGroupScore, contribution);
+
+        _MismatchOverlay[int2(dispatchThreadId.xy)] = float4(1.0 - combinedScore, lengthDiff, colorDiff, 1.0);
+    }
+
+    GroupMemoryBarrierWithGroupSync();
+
+    if (groupThreadId.x == 0 && groupThreadId.y == 0 && groupThreadId.z == 0)
+    {
+        uint groupIndex = groupId.y * _GroupCountX + groupId.x;
+        _GroupScores[groupIndex] = _SharedGroupScore;
+    }
+}
