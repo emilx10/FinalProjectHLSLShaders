@@ -8,9 +8,9 @@ using UnityEditor;
 
 public class ChallengeMapRandomGenerator : MonoBehaviour
 {
-    [Header("Source Size Check")]
-    [SerializeField] private Texture sourceLengthMap;
-    [SerializeField] private Texture sourceColorMap;
+    [Header("Main Map Size Reference")]
+    [SerializeField] private Texture mainLengthMapReference;
+    [SerializeField] private Texture mainColorMapReference;
 
     [Header("Random Generation")]
     [SerializeField] private Material painterMaterial;
@@ -21,7 +21,6 @@ public class ChallengeMapRandomGenerator : MonoBehaviour
 
     [Header("Challenge Naming")]
     [SerializeField] private string challengeFolder = "Assets/ChallengeMaps";
-    [SerializeField] private string challengeNamePrefix = "RandomChallenge";
     [SerializeField, Min(1)] private int challengeNumber = 1;
 
     [Header("Brush Ranges")]
@@ -36,7 +35,8 @@ public class ChallengeMapRandomGenerator : MonoBehaviour
 
     [Header("Color Map")]
     [SerializeField] private Color startingColor = Color.white;
-    [SerializeField] private Color[] randomColors =
+    [SerializeField]
+    private Color[] randomColors =
     {
         Color.red,
         Color.blue,
@@ -68,6 +68,7 @@ public class ChallengeMapRandomGenerator : MonoBehaviour
         }
 
         EnsureTargetMaps(width, height);
+
         ClearTexture(GeneratedLengthMap, startingLengthColor);
         ClearTexture(GeneratedColorMap, startingColor);
 
@@ -201,7 +202,7 @@ public class ChallengeMapRandomGenerator : MonoBehaviour
         width = 0;
         height = 0;
 
-        Texture reference = sourceLengthMap != null ? sourceLengthMap : sourceColorMap;
+        Texture reference = mainLengthMapReference != null ? mainLengthMapReference : mainColorMapReference;
         if (reference == null)
         {
             return false;
@@ -210,14 +211,16 @@ public class ChallengeMapRandomGenerator : MonoBehaviour
         width = reference.width;
         height = reference.height;
 
-        if (sourceLengthMap != null && (sourceLengthMap.width != width || sourceLengthMap.height != height))
+        if (mainLengthMapReference != null &&
+            (mainLengthMapReference.width != width || mainLengthMapReference.height != height))
         {
-            Debug.LogWarning("Random generator: source LengthMap size does not match the reference size.");
+            Debug.LogWarning("Random generator: main LengthMap reference size does not match.");
         }
 
-        if (sourceColorMap != null && (sourceColorMap.width != width || sourceColorMap.height != height))
+        if (mainColorMapReference != null &&
+            (mainColorMapReference.width != width || mainColorMapReference.height != height))
         {
-            Debug.LogWarning("Random generator: source ColorMap size does not match the reference size.");
+            Debug.LogWarning("Random generator: main ColorMap reference size does not match.");
         }
 
         return true;
@@ -226,36 +229,30 @@ public class ChallengeMapRandomGenerator : MonoBehaviour
     private void SaveGeneratedChallenge(int width, int height)
     {
 #if UNITY_EDITOR
-        string folder = challengeFolder;
-        if (string.IsNullOrWhiteSpace(folder))
-        {
-            folder = "Assets/ChallengeMaps";
-        }
+        string challengeFolderName = "RandomChallenge_" + challengeNumber.ToString();
+        string fullFolder = ChallengeMapSaveUtility.BuildChallengeFolder(challengeFolder, challengeFolderName);
 
-        string challengeBaseName = challengeNamePrefix + "_" + challengeNumber.ToString();
+        ChallengeMapSaveUtility.EnsureProjectFolder(fullFolder);
 
         Texture2D lengthAsset = ChallengeMapSaveUtility.SaveTextureAsPng(
             GeneratedLengthMap,
-            Path.Combine(folder, "RandomChallengeLengthMap_" + challengeNumber.ToString() + ".png"),
+            fullFolder + "/RandomChallengeLengthMap_" + challengeNumber.ToString() + ".png",
             true);
 
         Texture2D colorAsset = ChallengeMapSaveUtility.SaveTextureAsPng(
             GeneratedColorMap,
-            Path.Combine(folder, "RandomChallengeColorMap_" + challengeNumber.ToString() + ".png"),
+            fullFolder + "/RandomChallengeColorMap_" + challengeNumber.ToString() + ".png",
             false);
 
-        ChallengeMapDefinition definition = ChallengeMapSaveUtility.CreateOrUpdateDefinitionAsset(
-            folder,
-            challengeBaseName,
+        GeneratedDefinition = ChallengeMapSaveUtility.CreateOrUpdateDefinitionAsset(
+            fullFolder,
+            challengeFolderName,
             ChallengeMapDefinition.ChallengeSource.Random,
-            null,
-            null,
             lengthAsset,
             colorAsset,
             challengeNumber);
 
-        GeneratedDefinition = definition;
-        Debug.Log("Saved random challenge: " + challengeBaseName + " (" + width + "x" + height + ")");
+        Debug.Log("Saved random challenge in folder: " + fullFolder + " (" + width + "x" + height + ")");
 #else
         Debug.LogWarning("Challenge saving is editor-only.");
 #endif

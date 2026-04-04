@@ -15,8 +15,12 @@ public class ChallengeMapDefinition : ScriptableObject
     public ChallengeSource source = ChallengeSource.Random;
 
     [Header("Target Data")]
+    [Tooltip("Optional preview image for the player-facing target panel.")]
     public Texture2D referenceImage;
+
+    [Tooltip("Optional material reference if you want to store the target rendering setup.")]
     public Material targetMaterial;
+
     public Texture2D targetLengthMap;
     public Texture2D targetColorMap;
 
@@ -47,6 +51,8 @@ public class ChallengeMapDefinition : ScriptableObject
     [Range(0f, 1f)] public float aRankThreshold = 0.85f;
     [Range(0f, 1f)] public float bRankThreshold = 0.70f;
     [Range(0f, 1f)] public float cRankThreshold = 0.50f;
+    [Range(0f, 1f)] public float dRankThreshold = 0.40f;
+    [Range(0f, 1f)] public float eRankThreshold = 0.20f;
 
     public bool HasValidMaps
     {
@@ -111,12 +117,12 @@ public class ChallengeMapDefinition : ScriptableObject
 
         if (targetLengthMap != null)
         {
-            largestSize = Mathf.Max(largestSize, Mathf.Max(targetLengthMap.width, targetLengthMap.height));
+            largestSize = Mathf.Max(largestSize, targetLengthMap.width, targetLengthMap.height);
         }
 
         if (targetColorMap != null)
         {
-            largestSize = Mathf.Max(largestSize, Mathf.Max(targetColorMap.width, targetColorMap.height));
+            largestSize = Mathf.Max(largestSize, targetColorMap.width, targetColorMap.height);
         }
 
         if (largestSize >= highResolutionThreshold)

@@ -15,7 +15,7 @@ public class ChallengeComparisonManager : MonoBehaviour
 
     [Header("Result")]
     [SerializeField, Range(0f, 1f)] private float lastScore01;
-    [SerializeField] private string lastRank = "D";
+    [SerializeField] private string lastRank = "F";
 
     private ComputeBuffer groupScoreBuffer;
     private int compareKernel;
@@ -155,14 +155,16 @@ public class ChallengeComparisonManager : MonoBehaviour
     {
         if (activeChallenge == null)
         {
-            return "D";
+            return "F";
         }
 
         if (score01 >= activeChallenge.sRankThreshold) return "S";
         if (score01 >= activeChallenge.aRankThreshold) return "A";
         if (score01 >= activeChallenge.bRankThreshold) return "B";
         if (score01 >= activeChallenge.cRankThreshold) return "C";
-        return "D";
+        if (score01 >= activeChallenge.dRankThreshold) return "D";
+        if (score01 >= activeChallenge.eRankThreshold) return "E";
+        return "F";
     }
 
     private void PrepareMismatchOverlay(int width, int height)

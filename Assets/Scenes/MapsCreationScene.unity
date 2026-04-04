@@ -136,7 +136,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &46389265
 RectTransform:
   m_ObjectHideFlags: 0
@@ -542,7 +542,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &365679497
 RectTransform:
   m_ObjectHideFlags: 0
@@ -616,7 +616,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &382155475
 Transform:
   m_ObjectHideFlags: 0
@@ -1003,7 +1003,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &1507876535
 RectTransform:
   m_ObjectHideFlags: 0
@@ -1167,15 +1167,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3a94bb7c4965b564eb40d22ad312c361, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ChallengeMapRandomGenerator
-  sourceLengthMap: {fileID: 8400000, guid: e181edbe79fd0e547ba1a5ccb0f3a112, type: 2}
-  sourceColorMap: {fileID: 8400000, guid: 2d544528a60e8ae468bd109c0aa6bf44, type: 2}
+  mainLengthMapReference: {fileID: 8400000, guid: e181edbe79fd0e547ba1a5ccb0f3a112, type: 2}
+  mainColorMapReference: {fileID: 8400000, guid: 2d544528a60e8ae468bd109c0aa6bf44, type: 2}
   painterMaterial: {fileID: 2100000, guid: 35b78cd68d287354580dbc6d8f22a773, type: 2}
   randomStrokeCount: 64
   randomSeed: 1
   useRandomSeed: 1
   saveGeneratedChallenge: 0
   challengeFolder: Assets/ChallengeMaps
-  challengeNamePrefix: RandomChallenge
   challengeNumber: 1
   radiusRange: {x: 0.01, y: 0.08}
   strengthRange: {x: 0.05, y: 0.2}
@@ -1489,7 +1488,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &1777583693
 RectTransform:
   m_ObjectHideFlags: 0
@@ -5612,10 +5611,10 @@ RectTransform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 561964700}
+  - {fileID: 1888818494}
+  - {fileID: 2130604926}
   - {fileID: 1719068632}
   - {fileID: 2134185450}
-  - {fileID: 2130604926}
-  - {fileID: 1888818494}
   - {fileID: 334781453}
   - {fileID: 46389265}
   - {fileID: 1507876535}
@@ -5737,16 +5736,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3c37c36b0b55be54fb148a3ee22d2c10, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ChallengeMapCustomAuthoring
-  sourceLengthMap: {fileID: 8400000, guid: e181edbe79fd0e547ba1a5ccb0f3a112, type: 2}
-  sourceColorMap: {fileID: 8400000, guid: 2d544528a60e8ae468bd109c0aa6bf44, type: 2}
-  customLengthMap: {fileID: 0}
-  customColorMap: {fileID: 0}
-  referenceImage: {fileID: 0}
-  targetMaterial: {fileID: 0}
-  challengeFolder: Assets/ChallengeMaps
-  challengeNamePrefix: CustomChallenge
+  mainLengthMapReference: {fileID: 8400000, guid: e181edbe79fd0e547ba1a5ccb0f3a112, type: 2}
+  mainColorMapReference: {fileID: 8400000, guid: 2d544528a60e8ae468bd109c0aa6bf44, type: 2}
+  customLengthMap: {fileID: 8400000, guid: d42c2a73806b920408a244da8de56cf6, type: 2}
+  customColorMap: {fileID: 8400000, guid: f29aa98189249b34b9f2061e26ff8d5c, type: 2}
+  challengeRootFolder: Assets/ChallengeMaps
   challengeNumber: 1
-  saveCustomChallenge: 0
+  saveCustomChallenge: 1
 --- !u!4 &1881767873
 Transform:
   m_ObjectHideFlags: 0
@@ -5778,7 +5774,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &1888818494
 RectTransform:
   m_ObjectHideFlags: 0

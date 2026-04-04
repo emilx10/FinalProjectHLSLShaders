@@ -7,6 +7,17 @@ using UnityEditor;
 
 public static class ChallengeMapSaveUtility
 {
+    public static string BuildChallengeFolder(string baseFolder, string challengeFolderName)
+    {
+        string folder = (baseFolder ?? "Assets").Replace('\\', '/').TrimEnd('/');
+        if (!folder.StartsWith("Assets"))
+        {
+            folder = "Assets/" + folder;
+        }
+
+        return folder + "/" + challengeFolderName;
+    }
+
     public static Texture2D CopyTextureToTexture2D(Texture source, bool linear)
     {
         if (source == null)
@@ -20,9 +31,8 @@ public static class ChallengeMapSaveUtility
         Texture2D result = new Texture2D(width, height, TextureFormat.RGBA32, false, linear);
 
         RenderTexture previous = RenderTexture.active;
-        RenderTexture sourceRT = source as RenderTexture;
 
-        if (sourceRT != null)
+        if (source is RenderTexture sourceRT)
         {
             RenderTexture.active = sourceRT;
             result.ReadPixels(new Rect(0, 0, width, height), 0, 0, false);
@@ -42,7 +52,7 @@ public static class ChallengeMapSaveUtility
     }
 
 #if UNITY_EDITOR
-    public static Texture2D SaveTextureAsPng(Texture source, string absoluteOrProjectPath, bool linear)
+    public static Texture2D SaveTextureAsPng(Texture source, string projectRelativePath, bool linear)
     {
         Texture2D texture = CopyTextureToTexture2D(source, linear);
         if (texture == null)
@@ -50,30 +60,29 @@ public static class ChallengeMapSaveUtility
             return null;
         }
 
-        string path = ToAbsoluteOrProjectPath(absoluteOrProjectPath);
-        Directory.CreateDirectory(Path.GetDirectoryName(path));
+        string absolutePath = ToAbsolutePath(projectRelativePath);
+        Directory.CreateDirectory(Path.GetDirectoryName(absolutePath));
 
-        File.WriteAllBytes(path, texture.EncodeToPNG());
+        File.WriteAllBytes(absolutePath, texture.EncodeToPNG());
         AssetDatabase.Refresh();
 
-        ConfigureImporter(path, linear);
-        return AssetDatabase.LoadAssetAtPath<Texture2D>(ToProjectRelativePath(path));
+        ConfigureImporter(projectRelativePath, linear);
+        return AssetDatabase.LoadAssetAtPath<Texture2D>(NormalizeProjectPath(projectRelativePath));
     }
 
     public static ChallengeMapDefinition CreateOrUpdateDefinitionAsset(
-        string assetFolder,
+        string folderPath,
         string assetName,
         ChallengeMapDefinition.ChallengeSource source,
-        Texture2D referenceImage,
-        Material targetMaterial,
         Texture2D lengthMap,
         Texture2D colorMap,
-        int challengeIndex)
+        int challengeIndex,
+        Texture2D referenceImage = null,
+        Material targetMaterial = null)
     {
-        string folderAbsolute = ToAbsoluteOrProjectPath(assetFolder);
-        Directory.CreateDirectory(folderAbsolute);
+        EnsureProjectFolder(folderPath);
 
-        string assetPath = CombineProjectPath(assetFolder, assetName + ".asset");
+        string assetPath = NormalizeProjectPath(folderPath) + "/" + assetName + ".asset";
         ChallengeMapDefinition definition = AssetDatabase.LoadAssetAtPath<ChallengeMapDefinition>(assetPath);
 
         if (definition == null)
@@ -96,54 +105,57 @@ public static class ChallengeMapSaveUtility
 
         return definition;
     }
+
+    public static void EnsureProjectFolder(string folderPath)
+    {
+        string normalized = NormalizeProjectPath(folderPath);
+        if (AssetDatabase.IsValidFolder(normalized))
+        {
+            return;
+        }
+
+        string[] segments = normalized.Split('/');
+        if (segments.Length <= 1)
+        {
+            return;
+        }
+
+        string current = segments[0];
+        for (int i = 1; i < segments.Length; i++)
+        {
+            string next = current + "/" + segments[i];
+            if (!AssetDatabase.IsValidFolder(next))
+            {
+                AssetDatabase.CreateFolder(current, segments[i]);
+            }
+
+            current = next;
+        }
+    }
 #endif
 
-    private static string ToAbsoluteOrProjectPath(string path)
+    private static string ToAbsolutePath(string projectRelativePath)
     {
-        if (Path.IsPathRooted(path))
-        {
-            return path.Replace('/', Path.DirectorySeparatorChar);
-        }
-
-        string normalized = path.Replace('\\', '/');
-        if (!normalized.StartsWith("Assets"))
-        {
-            normalized = "Assets/" + normalized;
-        }
-
+        string normalized = NormalizeProjectPath(projectRelativePath);
         string projectRoot = Directory.GetParent(Application.dataPath).FullName;
         return Path.Combine(projectRoot, normalized).Replace('/', Path.DirectorySeparatorChar);
     }
 
+    private static string NormalizeProjectPath(string path)
+    {
+        string normalized = (path ?? string.Empty).Replace('\\', '/');
+        if (!normalized.StartsWith("Assets"))
+        {
+            normalized = "Assets/" + normalized.TrimStart('/');
+        }
+
+        return normalized.TrimEnd('/');
+    }
+
 #if UNITY_EDITOR
-    private static string ToProjectRelativePath(string absolutePath)
+    private static void ConfigureImporter(string projectRelativePath, bool linear)
     {
-        string normalized = absolutePath.Replace('\\', '/');
-        string dataPath = Application.dataPath.Replace('\\', '/');
-
-        if (normalized.StartsWith(dataPath))
-        {
-            return "Assets" + normalized.Substring(dataPath.Length);
-        }
-
-        return absolutePath;
-    }
-
-    private static string CombineProjectPath(string folder, string fileName)
-    {
-        string cleanFolder = folder.Replace('\\', '/').TrimEnd('/');
-        if (!cleanFolder.StartsWith("Assets"))
-        {
-            cleanFolder = "Assets/" + cleanFolder;
-        }
-
-        return cleanFolder + "/" + fileName;
-    }
-
-    private static void ConfigureImporter(string absolutePath, bool linear)
-    {
-        string projectRelativePath = ToProjectRelativePath(absolutePath);
-        TextureImporter importer = AssetImporter.GetAtPath(projectRelativePath) as TextureImporter;
+        TextureImporter importer = AssetImporter.GetAtPath(NormalizeProjectPath(projectRelativePath)) as TextureImporter;
         if (importer == null)
         {
             return;
