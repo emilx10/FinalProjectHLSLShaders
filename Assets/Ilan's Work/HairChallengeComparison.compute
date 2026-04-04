@@ -19,49 +19,37 @@ float _ColorWeight;
 float _LengthTolerance;
 float _ColorTolerance;
 
-groupshared uint _SharedGroupScore;
-
 [numthreads(8, 8, 1)]
-void CompareHairMaps(uint3 dispatchThreadId : SV_DispatchThreadID, uint3 groupThreadId : SV_GroupThreadID, uint3 groupId : SV_GroupID)
+void CompareHairMaps(uint3 id : SV_DispatchThreadID)
 {
-    if (groupThreadId.x == 0 && groupThreadId.y == 0 && groupThreadId.z == 0)
+    if (id.x >= (uint) _Width || id.y >= (uint) _Height)
     {
-        _SharedGroupScore = 0;
+        return;
     }
 
-    GroupMemoryBarrierWithGroupSync();
+    float2 uv = (float2(id.xy) + 0.5) / float2(_Width, _Height);
 
-    if (dispatchThreadId.x < (uint)_Width && dispatchThreadId.y < (uint)_Height)
-    {
-        float2 uv = (float2(dispatchThreadId.xy) + 0.5) / float2(_Width, _Height);
+    float4 playerLength = _PlayerLengthMap.SampleLevel(sampler_LinearClamp, uv, 0);
+    float4 targetLength = _TargetLengthMap.SampleLevel(sampler_LinearClamp, uv, 0);
 
-        float4 playerLength = _PlayerLengthMap.SampleLevel(sampler_LinearClamp, uv, 0);
-        float4 targetLength = _TargetLengthMap.SampleLevel(sampler_LinearClamp, uv, 0);
+    float4 playerColor = _PlayerColorMap.SampleLevel(sampler_LinearClamp, uv, 0);
+    float4 targetColor = _TargetColorMap.SampleLevel(sampler_LinearClamp, uv, 0);
 
-        float4 playerColor = _PlayerColorMap.SampleLevel(sampler_LinearClamp, uv, 0);
-        float4 targetColor = _TargetColorMap.SampleLevel(sampler_LinearClamp, uv, 0);
+    float lengthDiff = abs(playerLength.r - targetLength.r);
+    float3 colorDelta = abs(playerColor.rgb - targetColor.rgb);
+    float colorDiff = (colorDelta.r + colorDelta.g + colorDelta.b) / 3.0;
 
-        float lengthDiff = abs(playerLength.r - targetLength.r);
-        float3 colorDelta = abs(playerColor.rgb - targetColor.rgb);
-        float colorDiff = (colorDelta.r + colorDelta.g + colorDelta.b) / 3.0;
+    float lengthScore = 1.0 - saturate(lengthDiff / max(_LengthTolerance, 0.0001));
+    float colorScore = 1.0 - saturate(colorDiff / max(_ColorTolerance, 0.0001));
 
-        float lengthScore = 1.0 - saturate(lengthDiff / max(_LengthTolerance, 0.0001));
-        float colorScore = 1.0 - saturate(colorDiff / max(_ColorTolerance, 0.0001));
+    float totalWeight = max(_LengthWeight + _ColorWeight, 0.0001);
+    float combinedScore = saturate((lengthScore * _LengthWeight + colorScore * _ColorWeight) / totalWeight);
 
-        float totalWeight = max(_LengthWeight + _ColorWeight, 0.0001);
-        float combinedScore = saturate((lengthScore * _LengthWeight + colorScore * _ColorWeight) / totalWeight);
+    uint contribution = (uint) round(combinedScore * 1000.0);
 
-        uint contribution = (uint)round(combinedScore * 10.0);
-        InterlockedAdd(_SharedGroupScore, contribution);
+    uint groupIndex = (id.y / 8) * _GroupCountX + (id.x / 8);
+    uint ignored;
+    InterlockedAdd(_GroupScores[groupIndex], contribution, ignored);
 
-        _MismatchOverlay[int2(dispatchThreadId.xy)] = float4(1.0 - combinedScore, lengthDiff, colorDiff, 1.0);
-    }
-
-    GroupMemoryBarrierWithGroupSync();
-
-    if (groupThreadId.x == 0 && groupThreadId.y == 0 && groupThreadId.z == 0)
-    {
-        uint groupIndex = groupId.y * _GroupCountX + groupId.x;
-        _GroupScores[groupIndex] = _SharedGroupScore;
-    }
+    _MismatchOverlay[int2(id.xy)] = float4(1.0 - combinedScore, lengthDiff, colorDiff, 1.0);
 }

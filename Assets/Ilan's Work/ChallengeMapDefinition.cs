@@ -15,12 +15,6 @@ public class ChallengeMapDefinition : ScriptableObject
     public ChallengeSource source = ChallengeSource.Random;
 
     [Header("Target Data")]
-    [Tooltip("Optional preview image for the player-facing target panel.")]
-    public Texture2D referenceImage;
-
-    [Tooltip("Optional material reference if you want to store the target rendering setup.")]
-    public Material targetMaterial;
-
     public Texture2D targetLengthMap;
     public Texture2D targetColorMap;
 
@@ -53,33 +47,6 @@ public class ChallengeMapDefinition : ScriptableObject
     [Range(0f, 1f)] public float cRankThreshold = 0.50f;
     [Range(0f, 1f)] public float dRankThreshold = 0.40f;
     [Range(0f, 1f)] public float eRankThreshold = 0.20f;
-
-    public bool HasValidMaps
-    {
-        get { return targetLengthMap != null && targetColorMap != null; }
-    }
-
-    public bool TryGetSize(out int width, out int height)
-    {
-        width = 0;
-        height = 0;
-
-        if (targetLengthMap != null)
-        {
-            width = targetLengthMap.width;
-            height = targetLengthMap.height;
-            return true;
-        }
-
-        if (targetColorMap != null)
-        {
-            width = targetColorMap.width;
-            height = targetColorMap.height;
-            return true;
-        }
-
-        return false;
-    }
 
     public bool ValidateTargetSizes(out string errorMessage)
     {
@@ -125,11 +92,8 @@ public class ChallengeMapDefinition : ScriptableObject
             largestSize = Mathf.Max(largestSize, targetColorMap.width, targetColorMap.height);
         }
 
-        if (largestSize >= highResolutionThreshold)
-        {
-            return highResolutionTolerance;
-        }
-
-        return lowResolutionTolerance;
+        return largestSize >= highResolutionThreshold
+            ? highResolutionTolerance
+            : lowResolutionTolerance;
     }
 }

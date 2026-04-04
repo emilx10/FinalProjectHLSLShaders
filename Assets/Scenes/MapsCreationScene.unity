@@ -5738,8 +5738,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ChallengeMapCustomAuthoring
   mainLengthMapReference: {fileID: 8400000, guid: e181edbe79fd0e547ba1a5ccb0f3a112, type: 2}
   mainColorMapReference: {fileID: 8400000, guid: 2d544528a60e8ae468bd109c0aa6bf44, type: 2}
-  customLengthMap: {fileID: 8400000, guid: d42c2a73806b920408a244da8de56cf6, type: 2}
-  customColorMap: {fileID: 8400000, guid: f29aa98189249b34b9f2061e26ff8d5c, type: 2}
+  customLengthMap: {fileID: 8400000, guid: e181edbe79fd0e547ba1a5ccb0f3a112, type: 2}
+  customColorMap: {fileID: 8400000, guid: 2d544528a60e8ae468bd109c0aa6bf44, type: 2}
   challengeRootFolder: Assets/ChallengeMaps
   challengeNumber: 1
   saveCustomChallenge: 1

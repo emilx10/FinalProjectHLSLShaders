@@ -20,6 +20,11 @@ public class ChallengeComparisonManager : MonoBehaviour
     private ComputeBuffer groupScoreBuffer;
     private int compareKernel;
 
+    public ChallengeMapDefinition ActiveChallenge
+    {
+        get { return activeChallenge; }
+    }
+
     public float LastScore01
     {
         get { return lastScore01; }
@@ -43,6 +48,11 @@ public class ChallengeComparisonManager : MonoBehaviour
         }
     }
 
+    private void Start()
+    {
+        HydrateFromSession();
+    }
+
     private void OnDestroy()
     {
         ReleaseBuffers();
@@ -59,9 +69,47 @@ public class ChallengeComparisonManager : MonoBehaviour
         playerColorMap = colorMap;
     }
 
+    public void HydrateFromSession()
+    {
+        if (HairChallengeSession.Instance == null)
+        {
+            return;
+        }
+
+        if (activeChallenge == null)
+        {
+            activeChallenge = HairChallengeSession.Instance.ActiveChallenge;
+        }
+
+        if (playerLengthMap == null || playerColorMap == null)
+        {
+            HairChallengeSession.Instance.TryGetComparisonData(
+                out ChallengeMapDefinition sessionChallenge,
+                out Texture sessionLengthMap,
+                out Texture sessionColorMap);
+
+            if (activeChallenge == null)
+            {
+                activeChallenge = sessionChallenge;
+            }
+
+            if (playerLengthMap == null)
+            {
+                playerLengthMap = sessionLengthMap;
+            }
+
+            if (playerColorMap == null)
+            {
+                playerColorMap = sessionColorMap;
+            }
+        }
+    }
+
     [ContextMenu("Evaluate Challenge")]
     public void EvaluateChallenge()
     {
+        HydrateFromSession();
+
         if (comparisonShader == null)
         {
             Debug.LogError("Comparison shader is missing.");
@@ -94,8 +142,6 @@ public class ChallengeComparisonManager : MonoBehaviour
         PrepareMismatchOverlay(activeChallenge.targetLengthMap.width, activeChallenge.targetLengthMap.height);
 
         float tolerance = activeChallenge.GetDifficultyTolerance();
-        float lengthTolerance = tolerance;
-        float colorTolerance = tolerance;
 
         comparisonShader.SetTexture(compareKernel, "_PlayerLengthMap", playerLengthMap);
         comparisonShader.SetTexture(compareKernel, "_PlayerColorMap", playerColorMap);
@@ -106,8 +152,8 @@ public class ChallengeComparisonManager : MonoBehaviour
         comparisonShader.SetInt("_Height", activeChallenge.targetLengthMap.height);
         comparisonShader.SetFloat("_LengthWeight", Mathf.Max(0f, activeChallenge.lengthWeight));
         comparisonShader.SetFloat("_ColorWeight", Mathf.Max(0f, activeChallenge.colorWeight));
-        comparisonShader.SetFloat("_LengthTolerance", lengthTolerance);
-        comparisonShader.SetFloat("_ColorTolerance", colorTolerance);
+        comparisonShader.SetFloat("_LengthTolerance", tolerance);
+        comparisonShader.SetFloat("_ColorTolerance", tolerance);
 
         int groupsX = Mathf.CeilToInt(activeChallenge.targetLengthMap.width / 8.0f);
         int groupsY = Mathf.CeilToInt(activeChallenge.targetLengthMap.height / 8.0f);
@@ -127,7 +173,7 @@ public class ChallengeComparisonManager : MonoBehaviour
             totalScore += scoreResult[i];
         }
 
-        float maxPossible = activeChallenge.targetLengthMap.width * activeChallenge.targetLengthMap.height * 10.0f;
+        float maxPossible = activeChallenge.targetLengthMap.width * activeChallenge.targetLengthMap.height * 1000.0f;
         lastScore01 = Mathf.Clamp01((float)totalScore / maxPossible);
         lastRank = EvaluateRank(lastScore01);
 
@@ -192,6 +238,7 @@ public class ChallengeComparisonManager : MonoBehaviour
     {
         ReleaseGroupScoreBuffer();
         groupScoreBuffer = new ComputeBuffer(groupCount, sizeof(uint), ComputeBufferType.Structured);
+
         uint[] initial = new uint[groupCount];
         groupScoreBuffer.SetData(initial);
     }

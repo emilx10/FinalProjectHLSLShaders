@@ -76,9 +76,7 @@ public static class ChallengeMapSaveUtility
         ChallengeMapDefinition.ChallengeSource source,
         Texture2D lengthMap,
         Texture2D colorMap,
-        int challengeIndex,
-        Texture2D referenceImage = null,
-        Material targetMaterial = null)
+        int challengeIndex)
     {
         EnsureProjectFolder(folderPath);
 
@@ -94,8 +92,6 @@ public static class ChallengeMapSaveUtility
         definition.challengeName = assetName;
         definition.challengeId = assetName + "_" + challengeIndex.ToString();
         definition.source = source;
-        definition.referenceImage = referenceImage;
-        definition.targetMaterial = targetMaterial;
         definition.targetLengthMap = lengthMap;
         definition.targetColorMap = colorMap;
 
