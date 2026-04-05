@@ -13,38 +13,33 @@ public class ChallengeComparisonManager : MonoBehaviour
     [Header("Output")]
     [SerializeField] private RenderTexture mismatchOverlay;
 
-    [Header("Result")]
-    [SerializeField, Range(0f, 1f)] private float lastScore01;
-    [SerializeField] private string lastRank = "F";
+    [Header("Null Detection")]
+    [SerializeField] private float emptyLengthValue = 0f;
+    [SerializeField] private Color emptyColorValue = Color.white;
+
+    private float lastScore01;
+    private string lastRank = "F";
 
     private ComputeBuffer groupScoreBuffer;
+    private ComputeBuffer groupWeightBuffer;
+    private ComputeBuffer changeFlagBuffer;
     private int compareKernel;
 
-    public ChallengeMapDefinition ActiveChallenge
-    {
-        get { return activeChallenge; }
-    }
-
-    public float LastScore01
-    {
-        get { return lastScore01; }
-    }
-
-    public string LastRank
-    {
-        get { return lastRank; }
-    }
-
-    public RenderTexture MismatchOverlay
-    {
-        get { return mismatchOverlay; }
-    }
+    public ChallengeMapDefinition ActiveChallenge => activeChallenge;
+    public float LastScore01 => lastScore01;
+    public string LastRank => lastRank;
+    public RenderTexture MismatchOverlay => mismatchOverlay;
+    public bool LastResultIsNone => lastRank == "None";
 
     private void Awake()
     {
         if (comparisonShader != null)
         {
             compareKernel = comparisonShader.FindKernel("CompareHairMaps");
+        }
+        else
+        {
+            Debug.LogWarning("ChallengeComparisonManager: comparison shader is not assigned.");
         }
     }
 
@@ -108,6 +103,8 @@ public class ChallengeComparisonManager : MonoBehaviour
     [ContextMenu("Evaluate Challenge")]
     public void EvaluateChallenge()
     {
+        Debug.Log("ChallengeComparisonManager: EvaluateChallenge started.");
+
         HydrateFromSession();
 
         if (comparisonShader == null)
@@ -134,12 +131,9 @@ public class ChallengeComparisonManager : MonoBehaviour
             return;
         }
 
-        if (!ValidatePlayerAgainstChallenge())
-        {
-            return;
-        }
+        LogCurrentMapSizes();
 
-        PrepareMismatchOverlay(activeChallenge.targetLengthMap.width, activeChallenge.targetLengthMap.height);
+        EnsureMismatchOverlay(activeChallenge.targetLengthMap.width, activeChallenge.targetLengthMap.height);
 
         float tolerance = activeChallenge.GetDifficultyTolerance();
 
@@ -150,51 +144,73 @@ public class ChallengeComparisonManager : MonoBehaviour
         comparisonShader.SetTexture(compareKernel, "_MismatchOverlay", mismatchOverlay);
         comparisonShader.SetInt("_Width", activeChallenge.targetLengthMap.width);
         comparisonShader.SetInt("_Height", activeChallenge.targetLengthMap.height);
+        comparisonShader.SetInt("_GroupCountX", Mathf.CeilToInt(activeChallenge.targetLengthMap.width / 8.0f));
         comparisonShader.SetFloat("_LengthWeight", Mathf.Max(0f, activeChallenge.lengthWeight));
         comparisonShader.SetFloat("_ColorWeight", Mathf.Max(0f, activeChallenge.colorWeight));
         comparisonShader.SetFloat("_LengthTolerance", tolerance);
         comparisonShader.SetFloat("_ColorTolerance", tolerance);
+        comparisonShader.SetFloat("_EmptyLengthValue", emptyLengthValue);
+        comparisonShader.SetVector("_EmptyColorValue", emptyColorValue);
 
         int groupsX = Mathf.CeilToInt(activeChallenge.targetLengthMap.width / 8.0f);
         int groupsY = Mathf.CeilToInt(activeChallenge.targetLengthMap.height / 8.0f);
         int totalGroups = groupsX * groupsY;
 
-        PrepareGroupScoreBuffer(totalGroups);
-        comparisonShader.SetBuffer(compareKernel, "_GroupScores", groupScoreBuffer);
-        comparisonShader.SetInt("_GroupCountX", groupsX);
+        PrepareGroupBuffers(totalGroups);
+        comparisonShader.SetBuffer(compareKernel, "_GroupScoreSums", groupScoreBuffer);
+        comparisonShader.SetBuffer(compareKernel, "_GroupWeightSums", groupWeightBuffer);
+        comparisonShader.SetBuffer(compareKernel, "_ChangeFlag", changeFlagBuffer);
+
         comparisonShader.Dispatch(compareKernel, groupsX, groupsY, 1);
 
-        uint[] scoreResult = new uint[totalGroups];
-        groupScoreBuffer.GetData(scoreResult);
+        uint[] changeFlag = new uint[1];
+        changeFlagBuffer.GetData(changeFlag);
 
-        ulong totalScore = 0;
-        for (int i = 0; i < scoreResult.Length; i++)
+        if (changeFlag[0] == 0u)
         {
-            totalScore += scoreResult[i];
+            lastScore01 = 0f;
+            lastRank = "None";
+            Debug.Log("Challenge score: None");
+            return;
         }
 
-        float maxPossible = activeChallenge.targetLengthMap.width * activeChallenge.targetLengthMap.height * 1000.0f;
-        lastScore01 = Mathf.Clamp01((float)totalScore / maxPossible);
+        uint[] scoreSums = new uint[totalGroups];
+        uint[] weightSums = new uint[totalGroups];
+        groupScoreBuffer.GetData(scoreSums);
+        groupWeightBuffer.GetData(weightSums);
+
+        ulong totalScore = 0;
+        ulong totalWeight = 0;
+
+        for (int i = 0; i < totalGroups; i++)
+        {
+            totalScore += scoreSums[i];
+            totalWeight += weightSums[i];
+        }
+
+        if (totalWeight == 0)
+        {
+            lastScore01 = 0f;
+            lastRank = "F";
+            Debug.LogWarning("ChallengeComparisonManager: total comparison weight was zero.");
+            return;
+        }
+
+        lastScore01 = Mathf.Clamp01((float)totalScore / (float)totalWeight / 1000f);
         lastRank = EvaluateRank(lastScore01);
 
         Debug.Log("Challenge score: " + (lastScore01 * 100f).ToString("0.00") + "% Rank: " + lastRank);
     }
 
-    private bool ValidatePlayerAgainstChallenge()
+    private void LogCurrentMapSizes()
     {
-        if (playerLengthMap.width != activeChallenge.targetLengthMap.width || playerLengthMap.height != activeChallenge.targetLengthMap.height)
-        {
-            Debug.LogError("Player LengthMap size does not match the challenge LengthMap size.");
-            return false;
-        }
+        string playerLength = playerLengthMap != null ? playerLengthMap.width + "x" + playerLengthMap.height : "null";
+        string playerColor = playerColorMap != null ? playerColorMap.width + "x" + playerColorMap.height : "null";
+        string targetLength = activeChallenge != null && activeChallenge.targetLengthMap != null ? activeChallenge.targetLengthMap.width + "x" + activeChallenge.targetLengthMap.height : "null";
+        string targetColor = activeChallenge != null && activeChallenge.targetColorMap != null ? activeChallenge.targetColorMap.width + "x" + activeChallenge.targetColorMap.height : "null";
 
-        if (playerColorMap.width != activeChallenge.targetColorMap.width || playerColorMap.height != activeChallenge.targetColorMap.height)
-        {
-            Debug.LogError("Player ColorMap size does not match the challenge ColorMap size.");
-            return false;
-        }
-
-        return true;
+        Debug.Log("Player LengthMap: " + playerLength + " | Player ColorMap: " + playerColor);
+        Debug.Log("Target LengthMap: " + targetLength + " | Target ColorMap: " + targetColor);
     }
 
     private string EvaluateRank(float score01)
@@ -213,7 +229,7 @@ public class ChallengeComparisonManager : MonoBehaviour
         return "F";
     }
 
-    private void PrepareMismatchOverlay(int width, int height)
+    private void EnsureMismatchOverlay(int width, int height)
     {
         if (mismatchOverlay != null && mismatchOverlay.width == width && mismatchOverlay.height == height)
         {
@@ -234,27 +250,43 @@ public class ChallengeComparisonManager : MonoBehaviour
         mismatchOverlay.Create();
     }
 
-    private void PrepareGroupScoreBuffer(int groupCount)
+    private void PrepareGroupBuffers(int groupCount)
     {
-        ReleaseGroupScoreBuffer();
-        groupScoreBuffer = new ComputeBuffer(groupCount, sizeof(uint), ComputeBufferType.Structured);
+        ReleaseGroupBuffers();
 
-        uint[] initial = new uint[groupCount];
-        groupScoreBuffer.SetData(initial);
+        groupScoreBuffer = new ComputeBuffer(groupCount, sizeof(uint), ComputeBufferType.Structured);
+        groupWeightBuffer = new ComputeBuffer(groupCount, sizeof(uint), ComputeBufferType.Structured);
+        changeFlagBuffer = new ComputeBuffer(1, sizeof(uint), ComputeBufferType.Structured);
+
+        groupScoreBuffer.SetData(new uint[groupCount]);
+        groupWeightBuffer.SetData(new uint[groupCount]);
+        changeFlagBuffer.SetData(new uint[] { 0u });
     }
 
     private void ReleaseBuffers()
     {
-        ReleaseGroupScoreBuffer();
+        ReleaseGroupBuffers();
         ReleaseMismatchOverlay();
     }
 
-    private void ReleaseGroupScoreBuffer()
+    private void ReleaseGroupBuffers()
     {
         if (groupScoreBuffer != null)
         {
             groupScoreBuffer.Release();
             groupScoreBuffer = null;
+        }
+
+        if (groupWeightBuffer != null)
+        {
+            groupWeightBuffer.Release();
+            groupWeightBuffer = null;
+        }
+
+        if (changeFlagBuffer != null)
+        {
+            changeFlagBuffer.Release();
+            changeFlagBuffer = null;
         }
     }
 

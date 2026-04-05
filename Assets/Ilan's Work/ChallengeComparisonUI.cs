@@ -29,19 +29,39 @@ public class ChallengeComparisonUI : MonoBehaviour
             challengeNameText.text = challenge != null ? challenge.challengeName : "-";
         }
 
-        if (scoreText != null)
+        if (comparisonManager.LastResultIsNone)
         {
-            scoreText.text = (comparisonManager.LastScore01 * 100f).ToString("0.00") + "%";
-        }
+            if (scoreText != null)
+            {
+                scoreText.text = "None";
+            }
 
-        if (rankText != null)
-        {
-            rankText.text = comparisonManager.LastRank;
-        }
+            if (rankText != null)
+            {
+                rankText.text = "None";
+            }
 
-        if (scoreFillImage != null)
+            if (scoreFillImage != null)
+            {
+                scoreFillImage.fillAmount = 0f;
+            }
+        }
+        else
         {
-            scoreFillImage.fillAmount = comparisonManager.LastScore01;
+            if (scoreText != null)
+            {
+                scoreText.text = (comparisonManager.LastScore01 * 100f).ToString("0.00") + "%";
+            }
+
+            if (rankText != null)
+            {
+                rankText.text = comparisonManager.LastRank;
+            }
+
+            if (scoreFillImage != null)
+            {
+                scoreFillImage.fillAmount = comparisonManager.LastScore01;
+            }
         }
 
         if (targetLengthPreview != null)

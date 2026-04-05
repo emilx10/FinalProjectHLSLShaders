@@ -6,7 +6,9 @@ Texture2D<float4> _TargetLengthMap;
 Texture2D<float4> _TargetColorMap;
 
 RWTexture2D<float4> _MismatchOverlay;
-RWStructuredBuffer<uint> _GroupScores;
+RWStructuredBuffer<uint> _GroupScoreSums;
+RWStructuredBuffer<uint> _GroupWeightSums;
+RWStructuredBuffer<uint> _ChangeFlag;
 
 SamplerState sampler_LinearClamp;
 
@@ -18,6 +20,9 @@ float _LengthWeight;
 float _ColorWeight;
 float _LengthTolerance;
 float _ColorTolerance;
+
+float _EmptyLengthValue;
+float4 _EmptyColorValue;
 
 [numthreads(8, 8, 1)]
 void CompareHairMaps(uint3 id : SV_DispatchThreadID)
@@ -45,11 +50,25 @@ void CompareHairMaps(uint3 id : SV_DispatchThreadID)
     float totalWeight = max(_LengthWeight + _ColorWeight, 0.0001);
     float combinedScore = saturate((lengthScore * _LengthWeight + colorScore * _ColorWeight) / totalWeight);
 
-    uint contribution = (uint) round(combinedScore * 1000.0);
+    float activeWeight = saturate(max(targetLength.r, playerLength.r));
+
+    uint scoreContribution = (uint) round(combinedScore * activeWeight * 1000.0);
+    uint weightContribution = (uint) round(activeWeight * 1000.0);
 
     uint groupIndex = (id.y / 8) * _GroupCountX + (id.x / 8);
-    uint ignored;
-    InterlockedAdd(_GroupScores[groupIndex], contribution, ignored);
 
-    _MismatchOverlay[int2(id.xy)] = float4(1.0 - combinedScore, lengthDiff, colorDiff, 1.0);
+    uint ignored;
+    InterlockedAdd(_GroupScoreSums[groupIndex], scoreContribution, ignored);
+    InterlockedAdd(_GroupWeightSums[groupIndex], weightContribution, ignored);
+
+    bool changed =
+        abs(playerLength.r - _EmptyLengthValue) > 0.0001 ||
+        distance(playerColor.rgb, _EmptyColorValue.rgb) > 0.0001;
+
+    if (changed)
+    {
+        InterlockedOr(_ChangeFlag[0], 1u, ignored);
+    }
+
+    _MismatchOverlay[int2(id.xy)] = float4(1.0 - combinedScore, lengthDiff, colorDiff, activeWeight);
 }
