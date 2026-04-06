@@ -19,6 +19,11 @@ public class ChallengeMapLibrary : ScriptableObject
 
     public bool TryGetRandomChallenge(out ChallengeMapDefinition challenge)
     {
+        return TryGetRandomChallenge(null, out challenge);
+    }
+
+    public bool TryGetRandomChallenge(ChallengeMapDefinition excludeChallenge, out ChallengeMapDefinition challenge)
+    {
         challenge = null;
 
         if (challenges == null || challenges.Count == 0)
@@ -26,17 +31,36 @@ public class ChallengeMapLibrary : ScriptableObject
             return false;
         }
 
+        List<ChallengeMapDefinition> candidates = new List<ChallengeMapDefinition>();
+
         for (int i = 0; i < challenges.Count; i++)
         {
-            ChallengeMapDefinition candidate = challenges[Random.Range(0, challenges.Count)];
-            if (candidate != null && candidate.targetLengthMap != null && candidate.targetColorMap != null)
+            ChallengeMapDefinition candidate = challenges[i];
+            if (candidate == null)
             {
-                challenge = candidate;
-                return true;
+                continue;
             }
+
+            if (candidate == excludeChallenge)
+            {
+                continue;
+            }
+
+            if (candidate.targetLengthMap == null || candidate.targetColorMap == null)
+            {
+                continue;
+            }
+
+            candidates.Add(candidate);
         }
 
-        return false;
+        if (candidates.Count == 0)
+        {
+            return false;
+        }
+
+        challenge = candidates[Random.Range(0, candidates.Count)];
+        return true;
     }
 
 #if UNITY_EDITOR

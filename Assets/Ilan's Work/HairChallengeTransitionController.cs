@@ -16,6 +16,11 @@ public class HairChallengeTransitionController : MonoBehaviour
     [SerializeField] private Texture playerLengthMap;
     [SerializeField] private Texture playerColorMap;
 
+    [Header("Baseline")]
+    [SerializeField] private Texture baselineLengthMap;
+    [SerializeField] private Texture baselineColorMap;
+    [SerializeField] private bool baselineCaptured;
+
     private void Start()
     {
         if (pickRandomChallengeOnStart)
@@ -26,6 +31,8 @@ public class HairChallengeTransitionController : MonoBehaviour
         {
             SyncSelectedChallengeToSession();
         }
+
+        CaptureBaselineIfPossible();
     }
 
     public void SetSelectedChallenge(ChallengeMapDefinition challenge)
@@ -39,6 +46,8 @@ public class HairChallengeTransitionController : MonoBehaviour
         playerLengthMap = lengthMap;
         playerColorMap = colorMap;
         SyncPlayerMapsToSession();
+
+        CaptureBaselineIfPossible();
     }
 
     public bool PickRandomChallenge()
@@ -49,9 +58,9 @@ public class HairChallengeTransitionController : MonoBehaviour
             return false;
         }
 
-        if (!challengeLibrary.TryGetRandomChallenge(out ChallengeMapDefinition challenge))
+        if (!challengeLibrary.TryGetRandomChallenge(selectedChallenge, out ChallengeMapDefinition challenge))
         {
-            Debug.LogError("Challenge library does not contain any valid challenges.");
+            Debug.LogError("No different valid challenge could be found.");
             return false;
         }
 
@@ -84,6 +93,17 @@ public class HairChallengeTransitionController : MonoBehaviour
             return;
         }
 
+        if (!baselineCaptured)
+        {
+            CaptureBaselineIfPossible();
+        }
+
+        if (!baselineCaptured || baselineLengthMap == null || baselineColorMap == null)
+        {
+            Debug.LogError("Baseline maps were not captured.");
+            return;
+        }
+
         if (HairChallengeSession.Instance == null)
         {
             Debug.LogError("HairChallengeSession is missing from the scene.");
@@ -91,9 +111,32 @@ public class HairChallengeTransitionController : MonoBehaviour
         }
 
         HairChallengeSession.Instance.SetActiveChallenge(selectedChallenge);
+        HairChallengeSession.Instance.SetBaselineMaps(baselineLengthMap, baselineColorMap);
         HairChallengeSession.Instance.SetPlayerMaps(playerLengthMap, playerColorMap);
 
         SceneManager.LoadScene(comparisonSceneName);
+    }
+
+    private void CaptureBaselineIfPossible()
+    {
+        if (baselineCaptured)
+        {
+            return;
+        }
+
+        if (playerLengthMap == null || playerColorMap == null)
+        {
+            return;
+        }
+
+        baselineLengthMap = HairChallengeTextureSnapshotUtility.CloneToRenderTexture(playerLengthMap, "BaselineLengthMap_Snapshot");
+        baselineColorMap = HairChallengeTextureSnapshotUtility.CloneToRenderTexture(playerColorMap, "BaselineColorMap_Snapshot");
+        baselineCaptured = baselineLengthMap != null && baselineColorMap != null;
+
+        if (baselineCaptured && HairChallengeSession.Instance != null)
+        {
+            HairChallengeSession.Instance.SetBaselineMaps(baselineLengthMap, baselineColorMap);
+        }
     }
 
     private void SyncSelectedChallengeToSession()

@@ -886,7 +886,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &382155475
 Transform:
   m_ObjectHideFlags: 0
@@ -918,9 +918,9 @@ MonoBehaviour:
   activeChallenge: {fileID: 0}
   playerLengthMap: {fileID: 8400000, guid: e181edbe79fd0e547ba1a5ccb0f3a112, type: 2}
   playerColorMap: {fileID: 8400000, guid: 2d544528a60e8ae468bd109c0aa6bf44, type: 2}
+  baselineLengthMap: {fileID: 0}
+  baselineColorMap: {fileID: 0}
   mismatchOverlay: {fileID: 0}
-  lastScore01: 0
-  lastRank: F
 --- !u!1 &410087039
 GameObject:
   m_ObjectHideFlags: 0
@@ -1841,6 +1841,8 @@ MonoBehaviour:
   selectedChallenge: {fileID: 0}
   playerLengthMap: {fileID: 8400000, guid: e181edbe79fd0e547ba1a5ccb0f3a112, type: 2}
   playerColorMap: {fileID: 8400000, guid: 2d544528a60e8ae468bd109c0aa6bf44, type: 2}
+  baselineLengthMap: {fileID: 0}
+  baselineColorMap: {fileID: 0}
 --- !u!4 &1653577166
 Transform:
   m_ObjectHideFlags: 0

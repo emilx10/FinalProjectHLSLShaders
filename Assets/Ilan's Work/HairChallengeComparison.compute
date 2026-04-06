@@ -4,6 +4,8 @@ Texture2D<float4> _PlayerLengthMap;
 Texture2D<float4> _PlayerColorMap;
 Texture2D<float4> _TargetLengthMap;
 Texture2D<float4> _TargetColorMap;
+Texture2D<float4> _BaselineLengthMap;
+Texture2D<float4> _BaselineColorMap;
 
 RWTexture2D<float4> _MismatchOverlay;
 RWStructuredBuffer<uint> _GroupScoreSums;
@@ -21,9 +23,6 @@ float _ColorWeight;
 float _LengthTolerance;
 float _ColorTolerance;
 
-float _EmptyLengthValue;
-float4 _EmptyColorValue;
-
 [numthreads(8, 8, 1)]
 void CompareHairMaps(uint3 id : SV_DispatchThreadID)
 {
@@ -36,9 +35,11 @@ void CompareHairMaps(uint3 id : SV_DispatchThreadID)
 
     float4 playerLength = _PlayerLengthMap.SampleLevel(sampler_LinearClamp, uv, 0);
     float4 targetLength = _TargetLengthMap.SampleLevel(sampler_LinearClamp, uv, 0);
+    float4 baseLength = _BaselineLengthMap.SampleLevel(sampler_LinearClamp, uv, 0);
 
     float4 playerColor = _PlayerColorMap.SampleLevel(sampler_LinearClamp, uv, 0);
     float4 targetColor = _TargetColorMap.SampleLevel(sampler_LinearClamp, uv, 0);
+    float4 baseColor = _BaselineColorMap.SampleLevel(sampler_LinearClamp, uv, 0);
 
     float lengthDiff = abs(playerLength.r - targetLength.r);
     float3 colorDelta = abs(playerColor.rgb - targetColor.rgb);
@@ -62,8 +63,8 @@ void CompareHairMaps(uint3 id : SV_DispatchThreadID)
     InterlockedAdd(_GroupWeightSums[groupIndex], weightContribution, ignored);
 
     bool changed =
-        abs(playerLength.r - _EmptyLengthValue) > 0.0001 ||
-        distance(playerColor.rgb, _EmptyColorValue.rgb) > 0.0001;
+        abs(playerLength.r - baseLength.r) > 0.0001 ||
+        distance(playerColor.rgb, baseColor.rgb) > 0.0001;
 
     if (changed)
     {
