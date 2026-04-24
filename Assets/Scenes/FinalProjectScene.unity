@@ -4802,7 +4802,7 @@ MonoBehaviour:
   heightSmoothness: 0.5
   continuousHeightPaintRate: 8
   brushColor: {r: 1, g: 0, b: 0, a: 1}
-  paintContinuouslyWhileHolding: 0
+  paintContinuouslyWhileHolding: 1
   brushUVProperty: _BrushUV
   brushRadiusProperty: _BrushRadius
   brushStrengthProperty: _BrushStrength
