@@ -33,14 +33,15 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
-    - _BrushFalloff: 0.5
-    - _BrushRadius: 0.05
-    - _BrushStrength: 0.02071377
+    - _BrushFalloff: 0.9817516
+    - _BrushRadius: 0.13877738
+    - _BrushStrength: 0.0046538957
     - _Hardness: 0.5
-    - _HeightSmoothness: 0.5
-    - _Mode: 1
+    - _HeightSmoothness: 0.75
+    - _HeightStepLimit: 0.08
+    - _Mode: 0
     m_Colors:
     - _BrushColor: {r: 1, g: 0, b: 0, a: 1}
-    - _BrushUV: {r: 0.6082705, g: 0.43782443, b: 0, a: 0}
+    - _BrushUV: {r: 0.045114815, g: 0.83368456, b: 0, a: 0}
   m_BuildTextureStacks: []
   m_AllowLocking: 1

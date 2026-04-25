@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 
 public class PaintController : MonoBehaviour
@@ -23,10 +24,11 @@ public class PaintController : MonoBehaviour
     [Header("Brush")]
     [SerializeField] private ToolMode currentTool = ToolMode.Cut;
     [SerializeField,] private float brushRadius = 0.05f;
-    [SerializeField,] private float brushStrength = 0.15f;
+    [SerializeField,] private float brushStrength = 0.08f;
     [SerializeField, Range(0f, 1f)] private float brushFalloff = 0.5f;
-    [SerializeField, Range(0f, 1f)] private float heightSmoothness = 0.5f;
-    [SerializeField, Min(0f)] private float continuousHeightPaintRate = 8f;
+    [SerializeField, Range(0f, 1f)] private float heightSmoothness = 0.75f;
+    [SerializeField, Min(0f)] private float continuousHeightPaintRate = 3f;
+    [SerializeField, Range(0.001f, 1f)] private float heightStepLimit = 0.08f;
     [SerializeField] private Color brushColor = Color.red;
 
     [Header("Input")]
@@ -38,6 +40,7 @@ public class PaintController : MonoBehaviour
     [SerializeField] private string brushStrengthProperty = "_BrushStrength";
     [SerializeField] private string brushFalloffProperty = "_BrushFalloff";
     [SerializeField] private string heightSmoothnessProperty = "_HeightSmoothness";
+    [SerializeField] private string heightStepLimitProperty = "_HeightStepLimit";
     [SerializeField] private string brushColorProperty = "_BrushColor";
     [SerializeField] private string modeProperty = "_Mode";
     [SerializeField] private string lengthMapProperty = "_LengthMap";
@@ -61,6 +64,15 @@ public class PaintController : MonoBehaviour
 
     private Texture2D lengthMapReadback;
     private bool lengthMapReadbackDirty = true;
+
+    public ToolMode CurrentTool => currentTool;
+    public float BrushRadius => brushRadius;
+    public float BrushStrength => brushStrength;
+    public float BrushFalloff => brushFalloff;
+    public float HeightSmoothness => heightSmoothness;
+    public float ContinuousHeightPaintRate => continuousHeightPaintRate;
+    public float HeightStepLimit => heightStepLimit;
+    public Color BrushColor => brushColor;
 
     private void Awake()
     {
@@ -129,6 +141,9 @@ public class PaintController : MonoBehaviour
     private void TryPaintAtMouse(float paintScale)
     {
         if (targetCamera == null || Mouse.current == null || paintMaterial == null)
+            return;
+
+        if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
             return;
 
         Vector2 mousePosition = Mouse.current.position.ReadValue();
@@ -205,6 +220,7 @@ public class PaintController : MonoBehaviour
         paintMaterial.SetFloat(brushStrengthProperty, appliedStrength);
         paintMaterial.SetFloat(brushFalloffProperty, brushFalloff);
         paintMaterial.SetFloat(heightSmoothnessProperty, heightSmoothness);
+        paintMaterial.SetFloat(heightStepLimitProperty, heightStepLimit);
         paintMaterial.SetColor(brushColorProperty, brushColor);
         paintMaterial.SetFloat(modeProperty, (float)currentTool);
 
@@ -434,12 +450,14 @@ public class PaintController : MonoBehaviour
     public void SetToolGrow() => currentTool = ToolMode.Grow;
     public void SetToolCut() => currentTool = ToolMode.Cut;
     public void SetToolColor() => currentTool = ToolMode.Color;
+    public void SetToolMode(ToolMode value) => currentTool = value;
 
     public void SetBrushRadius(float value) => brushRadius = Mathf.Max(0.0001f, value);
     public void SetBrushStrength(float value) => brushStrength = Mathf.Max(0f, value);
     public void SetBrushFalloff(float value) => brushFalloff = Mathf.Clamp01(value);
     public void SetHeightSmoothness(float value) => heightSmoothness = Mathf.Clamp01(value);
     public void SetContinuousHeightPaintRate(float value) => continuousHeightPaintRate = Mathf.Max(0f, value);
+    public void SetHeightStepLimit(float value) => heightStepLimit = Mathf.Clamp(value, 0.001f, 1f);
     public void SetBrushColor(Color value) => brushColor = value;
 
     public void ClearLengthMapToBlack()

@@ -1,0 +1,75 @@
+#pragma kernel CompareHairMaps
+
+Texture2D<float4> _PlayerLengthMap;
+Texture2D<float4> _PlayerColorMap;
+Texture2D<float4> _TargetLengthMap;
+Texture2D<float4> _TargetColorMap;
+Texture2D<float4> _BaselineLengthMap;
+Texture2D<float4> _BaselineColorMap;
+
+RWTexture2D<float4> _MismatchOverlay;
+RWStructuredBuffer<uint> _GroupScoreSums;
+RWStructuredBuffer<uint> _GroupWeightSums;
+RWStructuredBuffer<uint> _ChangeFlag;
+
+SamplerState sampler_LinearClamp;
+
+int _Width;
+int _Height;
+int _GroupCountX;
+
+float _LengthWeight;
+float _ColorWeight;
+float _LengthTolerance;
+float _ColorTolerance;
+
+[numthreads(8, 8, 1)]
+void CompareHairMaps(uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= (uint) _Width || id.y >= (uint) _Height)
+    {
+        return;
+    }
+
+    float2 uv = (float2(id.xy) + 0.5) / float2(_Width, _Height);
+
+    float4 playerLength = _PlayerLengthMap.SampleLevel(sampler_LinearClamp, uv, 0);
+    float4 targetLength = _TargetLengthMap.SampleLevel(sampler_LinearClamp, uv, 0);
+    float4 baseLength = _BaselineLengthMap.SampleLevel(sampler_LinearClamp, uv, 0);
+
+    float4 playerColor = _PlayerColorMap.SampleLevel(sampler_LinearClamp, uv, 0);
+    float4 targetColor = _TargetColorMap.SampleLevel(sampler_LinearClamp, uv, 0);
+    float4 baseColor = _BaselineColorMap.SampleLevel(sampler_LinearClamp, uv, 0);
+
+    float lengthDiff = abs(playerLength.r - targetLength.r);
+    float3 colorDelta = abs(playerColor.rgb - targetColor.rgb);
+    float colorDiff = (colorDelta.r + colorDelta.g + colorDelta.b) / 3.0;
+
+    float lengthScore = 1.0 - saturate(lengthDiff / max(_LengthTolerance, 0.0001));
+    float colorScore = 1.0 - saturate(colorDiff / max(_ColorTolerance, 0.0001));
+
+    float totalWeight = max(_LengthWeight + _ColorWeight, 0.0001);
+    float combinedScore = saturate((lengthScore * _LengthWeight + colorScore * _ColorWeight) / totalWeight);
+
+    float activeWeight = saturate(max(targetLength.r, playerLength.r));
+
+    uint scoreContribution = (uint) round(combinedScore * activeWeight * 1000.0);
+    uint weightContribution = (uint) round(activeWeight * 1000.0);
+
+    uint groupIndex = (id.y / 8) * _GroupCountX + (id.x / 8);
+
+    uint ignored;
+    InterlockedAdd(_GroupScoreSums[groupIndex], scoreContribution, ignored);
+    InterlockedAdd(_GroupWeightSums[groupIndex], weightContribution, ignored);
+
+    bool changed =
+        abs(playerLength.r - baseLength.r) > 0.0001 ||
+        distance(playerColor.rgb, baseColor.rgb) > 0.0001;
+
+    if (changed)
+    {
+        InterlockedOr(_ChangeFlag[0], 1u, ignored);
+    }
+
+    _MismatchOverlay[int2(id.xy)] = float4(1.0 - combinedScore, lengthDiff, colorDiff, activeWeight);
+}

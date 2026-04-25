@@ -1,4 +1,4 @@
-Shader "Custom/Paint_HLSL_Shader"
+Shader "HairChallenge/ChallengeMapPainter"
 {
     Properties
     {
@@ -66,14 +66,11 @@ Shader "Custom/Paint_HLSL_Shader"
                 float d = distance(uv, center);
                 float t = saturate(d / max(radius, 0.0001));
 
-                // A falloff of 0 produces a hard edge, while 1 fades from the center.
                 if (falloff <= 0.0001)
                 {
                     return 1.0 - step(1.0, t);
                 }
 
-                // Use a gaussian-like profile so the mask looks like a soft airbrush:
-                // bright center, smooth radial falloff, and a clean fade at the edge.
                 float softness = lerp(48.0, 3.0, saturate(falloff));
                 float radialFade = exp(-softness * t * t);
                 float edgeFade = 1.0 - smoothstep(0.85, 1.0, t);
