@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 68c658b39617ebf478826ac63f1d3ca6, type: 3}
+  m_Name: ChallengeMapDefinition
+  m_EditorClassIdentifier: Assembly-CSharp::ChallengeMapDefinition
+  challengeName: Challenge 1
+  challengeId: Challenge_1
+  source: 0
+  referenceImage: {fileID: 0}
+  targetMaterial: {fileID: 0}
+  targetLengthMap: {fileID: 0}
+  targetColorMap: {fileID: 0}
+  lengthWeight: 0.5
+  colorWeight: 0.5
+  scaleDifficultyByTextureSize: 1
+  highResolutionThreshold: 4096
+  highResolutionTolerance: 0.05
+  lowResolutionTolerance: 0.25
+  sRankThreshold: 0.95
+  aRankThreshold: 0.85
+  bRankThreshold: 0.7
+  cRankThreshold: 0.5
