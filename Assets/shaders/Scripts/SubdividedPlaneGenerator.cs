@@ -113,6 +113,13 @@ public class SubdividedPlaneGenerator : MonoBehaviour
         Rebuild();
     }
 
+    public void SetSize(float newWidth, float newLength)
+    {
+        width = Mathf.Max(0.01f, newWidth);
+        length = Mathf.Max(0.01f, newLength);
+        Rebuild();
+    }
+
     private void EnsureMesh()
     {
         if (generatedMesh != null)

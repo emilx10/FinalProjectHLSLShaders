@@ -21,7 +21,7 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: GrassRenderShader
-  m_Shader: {fileID: -6465566751694194690, guid: 82fbafac48dcc15418fd7ce7f05aa246, type: 3}
+  m_Shader: {fileID: 4800000, guid: 9c839163cf3d4d34b9f76f44cd5391ec, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords: []
@@ -67,6 +67,7 @@ Material:
     - _GradientScale: 1
     - _LengthMulty: 10
     - _NormalStrength: 0.13
+    - _PaintBlendStrength: 0.85
     - _QueueControl: 0
     - _QueueOffset: 0
     - _ShadowStrength: 0.977
@@ -80,6 +81,8 @@ Material:
     - _BaseTint: {r: 1, g: 1, b: 1, a: 1}
     - _GradientColorA: {r: 0.2, g: 0.5, b: 0.2, a: 1}
     - _GradientColorB: {r: 0.9, g: 0.85, b: 0.35, a: 1}
+    - _HeightHighColor: {r: 0.4877187, g: 1, b: 0, a: 1}
+    - _HeightLowColor: {r: 0.36477977, g: 0.19269194, b: 0.11126925, a: 1}
     - _SpecularColor: {r: 0, g: 0, b: 0, a: 1}
     - _StripeColor: {r: 0.95, g: 0.95, b: 0.95, a: 1}
   m_BuildTextureStacks: []

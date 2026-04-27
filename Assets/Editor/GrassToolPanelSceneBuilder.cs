@@ -11,7 +11,7 @@ public static class GrassToolPanelSceneBuilder
     private const string ScenePath = "Assets/Scenes/FinalProjectScene.unity";
     private const string PrefabFolder = "Assets/shaders/UI";
     private const string PrefabPath = PrefabFolder + "/GrassToolPanel.prefab";
-    private const string AppliedSessionKey = "GrassToolPanelSceneBuilder_Applied_RemoveHiddenSliders1";
+    private const string AppliedSessionKey = "GrassToolPanelSceneBuilder_Applied_HeightPaintBlend1";
 
     static GrassToolPanelSceneBuilder()
     {
@@ -100,7 +100,7 @@ public static class GrassToolPanelSceneBuilder
     {
         TMP_FontAsset font = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>("Assets/TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF.asset");
 
-        GameObject root = CreateUIObject("Grass Tool Panel", null, new Vector2(330f, 450f));
+        GameObject root = CreateUIObject("Grass Tool Panel", null, new Vector2(330f, 520f));
         RectTransform rootRect = root.GetComponent<RectTransform>();
         rootRect.anchorMin = new Vector2(0f, 1f);
         rootRect.anchorMax = new Vector2(0f, 1f);
@@ -118,8 +118,8 @@ public static class GrassToolPanelSceneBuilder
         Button cutButton = CreateButton("Cut Button", root.transform, "Cut", new Vector2(119f, -64f), new Vector2(92f, 42f), font);
         Button paintButton = CreateButton("Paint Button", root.transform, "Paint", new Vector2(220f, -64f), new Vector2(92f, 42f), font);
 
-        Slider radiusSlider = CreateSlider("Brush Size Slider", root.transform, 0.005f, 0.18f, 0.05f, new Vector2(18f, -122f), font, out TMP_Text radiusValue);
-        Slider strengthSlider = CreateSlider("Power Slider", root.transform, 0.01f, 0.25f, 0.08f, new Vector2(18f, -190f), font, out TMP_Text strengthValue);
+        Slider radiusSlider = CreateSlider("Brush Size Slider", root.transform, 0f, 1f, 0.5f, new Vector2(18f, -122f), font, out TMP_Text radiusValue);
+        Slider strengthSlider = CreateSlider("Power Slider", root.transform, 0f, 1f, 0.5f, new Vector2(18f, -190f), font, out TMP_Text strengthValue);
         Slider falloffSlider = CreateSlider("Soft Edge Slider", root.transform, 0f, 1f, 0.5f, new Vector2(18f, -258f), font, out TMP_Text falloffValue);
 
         CreateText("Paint Color Label", root.transform, "Paint Color", 16, FontStyles.Bold, new Vector2(18f, -336f), new Vector2(120f, 24f), font);
@@ -133,8 +133,13 @@ public static class GrassToolPanelSceneBuilder
             CreateSwatch(root.transform, Color.white, new Vector2(278f, -334f), "White")
         };
 
-        Button resetButton = CreateButton("Reset Grass Button", root.transform, "Reset Grass", new Vector2(18f, -382f), new Vector2(142f, 36f), font);
-        Button clearButton = CreateButton("Clear Paint Button", root.transform, "Clear Paint", new Vector2(170f, -382f), new Vector2(142f, 36f), font);
+        CreateText("Paint Style Label", root.transform, "Paint Style", 16, FontStyles.Bold, new Vector2(18f, -376f), new Vector2(120f, 24f), font);
+        Button solidPaintButton = CreateButton("Solid Paint Button", root.transform, "Solid", new Vector2(128f, -374f), new Vector2(58f, 30f), font);
+        Button stripePaintButton = CreateButton("Stripe Paint Button", root.transform, "Stripe", new Vector2(192f, -374f), new Vector2(58f, 30f), font);
+        Button ombrePaintButton = CreateButton("Ombre Paint Button", root.transform, "Ombre", new Vector2(256f, -374f), new Vector2(58f, 30f), font);
+
+        Button resetButton = CreateButton("Reset Grass Button", root.transform, "Reset Grass", new Vector2(18f, -444f), new Vector2(142f, 36f), font);
+        Button clearButton = CreateButton("Clear Paint Button", root.transform, "Clear Paint", new Vector2(170f, -444f), new Vector2(142f, 36f), font);
 
         SerializedObject serializedPanel = new SerializedObject(panel);
         SetObject(serializedPanel, "growButton", growButton);
@@ -147,6 +152,9 @@ public static class GrassToolPanelSceneBuilder
         SetObject(serializedPanel, "strengthValueText", strengthValue);
         SetObject(serializedPanel, "falloffSlider", falloffSlider);
         SetObject(serializedPanel, "falloffValueText", falloffValue);
+        SetObject(serializedPanel, "solidPaintButton", solidPaintButton);
+        SetObject(serializedPanel, "stripePaintButton", stripePaintButton);
+        SetObject(serializedPanel, "ombrePaintButton", ombrePaintButton);
         SetObject(serializedPanel, "resetGrassButton", resetButton);
         SetObject(serializedPanel, "clearPaintButton", clearButton);
         SetSwatches(serializedPanel, swatches);
@@ -307,7 +315,7 @@ public static class GrassToolPanelSceneBuilder
         rect.anchorMax = new Vector2(0f, 1f);
         rect.pivot = new Vector2(0f, 1f);
         rect.anchoredPosition = new Vector2(24f, -24f);
-        rect.sizeDelta = new Vector2(330f, 450f);
+        rect.sizeDelta = new Vector2(330f, 520f);
         rect.localScale = Vector3.one;
 
         GrassToolPanel panel = instance.GetComponent<GrassToolPanel>();
