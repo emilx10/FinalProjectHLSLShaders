@@ -9,6 +9,11 @@ Shader "HairChallenge/ChallengeMapPainter"
         _HeightSmoothness ("Height Smoothness", Range(0,1)) = 0.5
         _HeightStepLimit ("Height Step Limit", Range(0.001,1)) = 0.08
         _BrushColor ("Brush Color", Color) = (1,0,0,1)
+        _SecondaryBrushColor ("Secondary Brush Color", Color) = (1,1,1,1)
+        _PaintBlendMode ("Paint Blend Mode", Float) = 0
+        _PatternScale ("Pattern Scale", Range(2,40)) = 16
+        _PatternSoftness ("Pattern Softness", Range(0.001,0.45)) = 0.08
+        _OmbreAngle ("Ombre Angle", Range(0,360)) = 0
         _Mode ("Mode", Float) = 0
         _MainTex ("MainTex", 2D) = "black" {}
     }
@@ -38,6 +43,11 @@ Shader "HairChallenge/ChallengeMapPainter"
             float _HeightSmoothness;
             float _HeightStepLimit;
             float4 _BrushColor;
+            float4 _SecondaryBrushColor;
+            float _PaintBlendMode;
+            float _PatternScale;
+            float _PatternSoftness;
+            float _OmbreAngle;
             float _Mode;
             float4 _MainTex_TexelSize;
 
@@ -65,16 +75,9 @@ Shader "HairChallenge/ChallengeMapPainter"
             {
                 float d = distance(uv, center);
                 float t = saturate(d / max(radius, 0.0001));
-
-                if (falloff <= 0.0001)
-                {
-                    return 1.0 - step(1.0, t);
-                }
-
-                float softness = lerp(48.0, 3.0, saturate(falloff));
-                float radialFade = exp(-softness * t * t);
-                float edgeFade = 1.0 - smoothstep(0.85, 1.0, t);
-                return saturate(radialFade * edgeFade);
+                float insideBrush = 1.0 - step(1.0, t);
+                float pencilFalloff = saturate(1.0 - t);
+                return insideBrush * lerp(1.0, pencilFalloff, saturate(falloff));
             }
 
             float SampleHeightAverage(float2 uv)
@@ -134,6 +137,34 @@ Shader "HairChallenge/ChallengeMapPainter"
                 return clamp(target, minAllowed, maxAllowed);
             }
 
+            float StripeMask(float2 uv)
+            {
+                float stripe = abs(frac((uv.x + uv.y) * _PatternScale) - 0.5) * 2.0;
+                return smoothstep(0.5 - _PatternSoftness, 0.5 + _PatternSoftness, stripe);
+            }
+
+            float OmbreMask(float2 uv)
+            {
+                float angle = radians(_OmbreAngle);
+                float2 direction = float2(cos(angle), sin(angle));
+                return saturate(dot(uv - 0.5, direction) + 0.5);
+            }
+
+            float3 PatternPaintColor(float2 uv)
+            {
+                if (_PaintBlendMode < 0.5)
+                {
+                    return _BrushColor.rgb;
+                }
+
+                if (_PaintBlendMode < 1.5)
+                {
+                    return lerp(_BrushColor.rgb, _SecondaryBrushColor.rgb, StripeMask(uv));
+                }
+
+                return lerp(_SecondaryBrushColor.rgb, _BrushColor.rgb, OmbreMask(uv));
+            }
+
             half4 frag(Varyings IN) : SV_Target
             {
                 float2 uv = IN.uv;
@@ -156,7 +187,8 @@ Shader "HairChallenge/ChallengeMapPainter"
                 }
                 else
                 {
-                    result.rgb = lerp(current.rgb, _BrushColor.rgb, amount);
+                    result.rgb = lerp(current.rgb, PatternPaintColor(uv), amount);
+                    result.a = saturate(current.a + amount);
                 }
 
                 return result;

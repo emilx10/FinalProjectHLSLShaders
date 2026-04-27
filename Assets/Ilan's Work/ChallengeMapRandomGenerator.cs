@@ -33,7 +33,8 @@ public class ChallengeMapRandomGenerator : MonoBehaviour
     [SerializeField] private Color startingLengthColor = Color.black;
 
     [Header("Color Map")]
-    [SerializeField] private Color startingColor = Color.white;
+    [SerializeField] private Color startingColor = new Color(1f, 1f, 1f, 0f);
+    [SerializeField] private bool usePatternedColorStrokes = true;
     [SerializeField]
     private Color[] randomColors =
     {
@@ -120,6 +121,8 @@ public class ChallengeMapRandomGenerator : MonoBehaviour
             float radius = Mathf.Lerp(radiusRange.x, radiusRange.y, (float)rng.NextDouble());
             float strength = Mathf.Lerp(strengthRange.x, strengthRange.y, (float)rng.NextDouble());
             Color color = randomColors[rng.Next(0, randomColors.Length)];
+            Color secondaryColor = randomColors[rng.Next(0, randomColors.Length)];
+            float paintBlendMode = usePatternedColorStrokes ? rng.Next(0, 3) : 0f;
 
             PaintStroke(
                 GeneratedColorMap,
@@ -128,11 +131,28 @@ public class ChallengeMapRandomGenerator : MonoBehaviour
                 strength,
                 2f,
                 color,
-                0f);
+                0f,
+                secondaryColor,
+                paintBlendMode,
+                Mathf.Lerp(8f, 28f, (float)rng.NextDouble()),
+                0.08f,
+                Mathf.Lerp(0f, 360f, (float)rng.NextDouble()));
         }
     }
 
-    private void PaintStroke(RenderTexture target, Vector2 uv, float radius, float strength, float mode, Color brushColor, float smoothness)
+    private void PaintStroke(
+        RenderTexture target,
+        Vector2 uv,
+        float radius,
+        float strength,
+        float mode,
+        Color brushColor,
+        float smoothness,
+        Color? secondaryColor = null,
+        float paintBlendMode = 0f,
+        float patternScale = 16f,
+        float patternSoftness = 0.08f,
+        float ombreAngle = 0f)
     {
         painterMaterial.SetVector("_BrushUV", new Vector4(uv.x, uv.y, 0f, 0f));
         painterMaterial.SetFloat("_BrushRadius", radius);
@@ -140,6 +160,11 @@ public class ChallengeMapRandomGenerator : MonoBehaviour
         painterMaterial.SetFloat("_BrushFalloff", falloff);
         painterMaterial.SetFloat("_HeightSmoothness", smoothness);
         painterMaterial.SetColor("_BrushColor", brushColor);
+        painterMaterial.SetColor("_SecondaryBrushColor", secondaryColor ?? Color.white);
+        painterMaterial.SetFloat("_PaintBlendMode", paintBlendMode);
+        painterMaterial.SetFloat("_PatternScale", patternScale);
+        painterMaterial.SetFloat("_PatternSoftness", patternSoftness);
+        painterMaterial.SetFloat("_OmbreAngle", ombreAngle);
         painterMaterial.SetFloat("_Mode", mode);
 
         RenderTexture temp = RenderTexture.GetTemporary(target.descriptor);
