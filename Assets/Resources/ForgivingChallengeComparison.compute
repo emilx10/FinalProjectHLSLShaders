@@ -1,0 +1,116 @@
+#pragma kernel CompareForgivingChallenge
+
+Texture2D<float4> _PlayerLengthMap;
+Texture2D<float4> _PlayerColorMap;
+Texture2D<float4> _TargetLengthMap;
+Texture2D<float4> _TargetColorMap;
+
+RWStructuredBuffer<uint> _GroupScoreSums;
+RWStructuredBuffer<uint> _GroupWeightSums;
+RWStructuredBuffer<uint> _ChangeFlag;
+
+SamplerState sampler_LinearClamp;
+
+int _ScoreResolution;
+int _NearbyMatchRadiusPixels;
+int _GroupCountX;
+
+float _LengthTolerance;
+float _ColorTolerance;
+float _ActiveTargetThreshold;
+float _ActivePlayerThreshold;
+float _LengthWeight;
+float _ColorWeight;
+float _EdgeProximityScore;
+float _ShapeForgiveness;
+float _CoverageReference;
+
+[numthreads(8, 8, 1)]
+void CompareForgivingChallenge(uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= (uint)_ScoreResolution || id.y >= (uint)_ScoreResolution)
+    {
+        return;
+    }
+
+    float2 uv = (float2(id.xy) + 0.5) / (float)_ScoreResolution;
+    float4 playerLengthAtTarget = _PlayerLengthMap.SampleLevel(sampler_LinearClamp, uv, 0);
+    float4 playerColorAtTarget = _PlayerColorMap.SampleLevel(sampler_LinearClamp, uv, 0);
+
+    bool changed =
+        abs(playerLengthAtTarget.r) > 0.0001 ||
+        abs(playerColorAtTarget.r - 1.0) > 0.0001 ||
+        abs(playerColorAtTarget.g - 1.0) > 0.0001 ||
+        abs(playerColorAtTarget.b - 1.0) > 0.0001;
+
+    uint ignored;
+    if (changed)
+    {
+        InterlockedOr(_ChangeFlag[0], 1u, ignored);
+    }
+
+    float4 targetLength = _TargetLengthMap.SampleLevel(sampler_LinearClamp, uv, 0);
+    if (targetLength.r < _ActiveTargetThreshold)
+    {
+        return;
+    }
+
+    float4 targetColor = _TargetColorMap.SampleLevel(sampler_LinearClamp, uv, 0);
+    int radius = max(_NearbyMatchRadiusPixels, 0);
+    float bestScore = 0.0;
+
+    for (int offsetY = -radius; offsetY <= radius; offsetY++)
+    {
+        int y = (int)id.y + offsetY;
+        if (y < 0 || y >= _ScoreResolution)
+        {
+            continue;
+        }
+
+        for (int offsetX = -radius; offsetX <= radius; offsetX++)
+        {
+            int x = (int)id.x + offsetX;
+            if (x < 0 || x >= _ScoreResolution)
+            {
+                continue;
+            }
+
+            float2 playerUV = (float2(x, y) + 0.5) / (float)_ScoreResolution;
+            float4 playerLength = _PlayerLengthMap.SampleLevel(sampler_LinearClamp, playerUV, 0);
+            if (playerLength.r < _ActivePlayerThreshold)
+            {
+                continue;
+            }
+
+            float4 playerColor = _PlayerColorMap.SampleLevel(sampler_LinearClamp, playerUV, 0);
+            float lengthDiff = abs(playerLength.r - targetLength.r);
+            float3 colorDelta = abs(playerColor.rgb - targetColor.rgb);
+            float colorDiff = (colorDelta.r + colorDelta.g + colorDelta.b) / 3.0;
+
+            float lengthScore = 1.0 - saturate(lengthDiff / max(_LengthTolerance, 0.0001));
+            float coverageScore = saturate(playerLength.r / max(_CoverageReference, 0.0001));
+            lengthScore = lerp(lengthScore, coverageScore, _ShapeForgiveness);
+
+            float colorScore = 1.0 - saturate(colorDiff / max(_ColorTolerance, 0.0001));
+            float presenceScore = saturate(playerLength.r / max(targetLength.r, 0.0001));
+            presenceScore = lerp(presenceScore, coverageScore, _ShapeForgiveness);
+
+            float normalizedDistance = radius > 0
+                ? saturate(length(float2(offsetX, offsetY)) / (float)radius)
+                : 0.0;
+
+            float proximityScore = lerp(1.0, _EdgeProximityScore, normalizedDistance);
+            float totalWeight = max(_LengthWeight + _ColorWeight, 0.0001);
+            float combinedScore = saturate((lengthScore * _LengthWeight + colorScore * _ColorWeight) / totalWeight);
+            bestScore = max(bestScore, combinedScore * presenceScore * proximityScore);
+        }
+    }
+
+    float activeWeight = saturate(targetLength.r);
+    uint scoreContribution = (uint)round(bestScore * activeWeight * 1000.0);
+    uint weightContribution = (uint)round(activeWeight * 1000.0);
+    uint groupIndex = (id.y / 8) * _GroupCountX + (id.x / 8);
+
+    InterlockedAdd(_GroupScoreSums[groupIndex], scoreContribution, ignored);
+    InterlockedAdd(_GroupWeightSums[groupIndex], weightContribution, ignored);
+}

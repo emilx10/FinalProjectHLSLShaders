@@ -13,6 +13,8 @@ public class FinalProjectChallengeController : MonoBehaviour
 
     [Header("References")]
     [SerializeField] private PaintController paintController;
+    [SerializeField] private ComputeShader comparisonShader;
+    [SerializeField] private string comparisonShaderResourceName = "ForgivingChallengeComparison";
 
     [Header("Difficulty")]
     [SerializeField] private ChallengeDifficulty currentDifficulty = ChallengeDifficulty.Medium;
@@ -27,7 +29,7 @@ public class FinalProjectChallengeController : MonoBehaviour
 
     [Header("Scoring")]
     [SerializeField, Range(32, 512)] private int scoreSampleResolution = 96;
-    [SerializeField, Range(0, 24)] private int nearbyMatchRadiusPixels = 10;
+    [SerializeField, Range(0, 48)] private int nearbyMatchRadiusPixels = 10;
     [SerializeField, Range(0.001f, 1f)] private float lengthTolerance = 0.45f;
     [SerializeField, Range(0.001f, 1f)] private float colorTolerance = 0.55f;
     [SerializeField, Range(0f, 1f)] private float activeTargetThreshold = 0.02f;
@@ -56,6 +58,11 @@ public class FinalProjectChallengeController : MonoBehaviour
     private Material targetRenderMaterial;
     private Material targetPainterMaterial;
     private GameObject targetPlane;
+    private ComputeBuffer groupScoreBuffer;
+    private ComputeBuffer groupWeightBuffer;
+    private ComputeBuffer changeFlagBuffer;
+    private int comparisonKernel = -1;
+    private int comparisonGroupCount;
 
     private Button newTargetButton;
     private Button scoreButton;
@@ -89,6 +96,8 @@ public class FinalProjectChallengeController : MonoBehaviour
         {
             Destroy(targetPainterMaterial);
         }
+
+        ReleaseComparisonBuffers();
     }
 
     public void SetPaintController(PaintController controller)
@@ -141,6 +150,11 @@ public class FinalProjectChallengeController : MonoBehaviour
         }
 
         float score01 = CompareMaps(playerLengthMap, playerColorMap, targetLengthMap, targetColorMap, out bool changed);
+        if (score01 < 0f)
+        {
+            return;
+        }
+
         if (!changed)
         {
             SetScoreText("Score: None", "Rank: None");
@@ -563,120 +577,128 @@ public class FinalProjectChallengeController : MonoBehaviour
 
     private float CompareMaps(Texture playerLength, Texture playerColor, Texture targetLength, Texture targetColor, out bool changed)
     {
-        int size = Mathf.Clamp(GetDifficultyScoreResolution(), 32, 512);
-        Texture2D playerLengthPixels = ReadTexture(playerLength, size, true);
-        Texture2D playerColorPixels = ReadTexture(playerColor, size, false);
-        Texture2D targetLengthPixels = ReadTexture(targetLength, size, true);
-        Texture2D targetColorPixels = ReadTexture(targetColor, size, false);
-
-        Color[] playerLengthColors = playerLengthPixels.GetPixels();
-        Color[] playerColorColors = playerColorPixels.GetPixels();
-        Color[] targetLengthColors = targetLengthPixels.GetPixels();
-        Color[] targetColorColors = targetColorPixels.GetPixels();
-
-        float totalScore = 0f;
-        float totalWeight = 0f;
         changed = false;
 
-        for (int y = 0; y < size; y++)
+        if (!EnsureComparisonShader())
         {
-            for (int x = 0; x < size; x++)
-            {
-                int i = y * size + x;
-                float targetLengthValue = targetLengthColors[i].r;
-                if (targetLengthValue < GetDifficultyActiveTargetThreshold())
-                {
-                    continue;
-                }
-
-                Color targetColorValue = targetColorColors[i];
-                float bestScore = FindBestNearbyMatch(
-                    x,
-                    y,
-                    size,
-                    targetLengthValue,
-                    targetColorValue,
-                    playerLengthColors,
-                    playerColorColors);
-
-                float activeWeight = Mathf.Clamp01(targetLengthValue);
-                totalScore += bestScore * activeWeight;
-                totalWeight += activeWeight;
-            }
+            return -1f;
         }
 
-        changed = HasPlayerChanged(playerLengthColors, playerColorColors);
+        int size = Mathf.Clamp(GetDifficultyScoreResolution(), 32, 512);
+        int groupsX = Mathf.CeilToInt(size / 8f);
+        int groupsY = Mathf.CeilToInt(size / 8f);
+        int totalGroups = groupsX * groupsY;
 
-        Destroy(playerLengthPixels);
-        Destroy(playerColorPixels);
-        Destroy(targetLengthPixels);
-        Destroy(targetColorPixels);
+        PrepareComparisonBuffers(totalGroups);
 
-        if (totalWeight <= 0f)
+        comparisonShader.SetTexture(comparisonKernel, "_PlayerLengthMap", playerLength);
+        comparisonShader.SetTexture(comparisonKernel, "_PlayerColorMap", playerColor);
+        comparisonShader.SetTexture(comparisonKernel, "_TargetLengthMap", targetLength);
+        comparisonShader.SetTexture(comparisonKernel, "_TargetColorMap", targetColor);
+        comparisonShader.SetBuffer(comparisonKernel, "_GroupScoreSums", groupScoreBuffer);
+        comparisonShader.SetBuffer(comparisonKernel, "_GroupWeightSums", groupWeightBuffer);
+        comparisonShader.SetBuffer(comparisonKernel, "_ChangeFlag", changeFlagBuffer);
+
+        comparisonShader.SetInt("_ScoreResolution", size);
+        comparisonShader.SetInt("_NearbyMatchRadiusPixels", GetDifficultyNearbyMatchRadiusPixels());
+        comparisonShader.SetInt("_GroupCountX", groupsX);
+        comparisonShader.SetFloat("_LengthTolerance", GetDifficultyLengthTolerance());
+        comparisonShader.SetFloat("_ColorTolerance", GetDifficultyColorTolerance());
+        comparisonShader.SetFloat("_ActiveTargetThreshold", GetDifficultyActiveTargetThreshold());
+        comparisonShader.SetFloat("_ActivePlayerThreshold", GetDifficultyActivePlayerThreshold());
+        comparisonShader.SetFloat("_LengthWeight", GetDifficultyLengthWeight());
+        comparisonShader.SetFloat("_ColorWeight", GetDifficultyColorWeight());
+        comparisonShader.SetFloat("_EdgeProximityScore", GetDifficultyEdgeProximityScore());
+        comparisonShader.SetFloat("_ShapeForgiveness", GetDifficultyShapeForgiveness());
+        comparisonShader.SetFloat("_CoverageReference", GetDifficultyCoverageReference());
+
+        comparisonShader.Dispatch(comparisonKernel, groupsX, groupsY, 1);
+
+        uint[] changeFlag = new uint[1];
+        changeFlagBuffer.GetData(changeFlag);
+        changed = changeFlag[0] != 0u;
+
+        uint[] scoreSums = new uint[totalGroups];
+        uint[] weightSums = new uint[totalGroups];
+        groupScoreBuffer.GetData(scoreSums);
+        groupWeightBuffer.GetData(weightSums);
+
+        ulong totalScore = 0;
+        ulong totalWeight = 0;
+        for (int i = 0; i < totalGroups; i++)
+        {
+            totalScore += scoreSums[i];
+            totalWeight += weightSums[i];
+        }
+
+        if (totalWeight == 0)
         {
             return 0f;
         }
 
-        return Mathf.Clamp01(totalScore / totalWeight);
+        return Mathf.Clamp01((float)totalScore / (float)totalWeight);
     }
 
-    private float FindBestNearbyMatch(
-        int targetX,
-        int targetY,
-        int textureSize,
-        float targetLengthValue,
-        Color targetColorValue,
-        Color[] playerLengthColors,
-        Color[] playerColorColors)
+    private bool EnsureComparisonShader()
     {
-        int radius = Mathf.Clamp(GetDifficultyNearbyMatchRadiusPixels(), 0, 24);
-        float bestScore = 0f;
-
-        for (int offsetY = -radius; offsetY <= radius; offsetY++)
+        if (comparisonShader == null)
         {
-            int y = targetY + offsetY;
-            if (y < 0 || y >= textureSize)
-            {
-                continue;
-            }
-
-            for (int offsetX = -radius; offsetX <= radius; offsetX++)
-            {
-                int x = targetX + offsetX;
-                if (x < 0 || x >= textureSize)
-                {
-                    continue;
-                }
-
-                int i = y * textureSize + x;
-                float playerLengthValue = playerLengthColors[i].r;
-                if (playerLengthValue < GetDifficultyActivePlayerThreshold())
-                {
-                    continue;
-                }
-
-                Color playerColorValue = playerColorColors[i];
-
-                float lengthDiff = Mathf.Abs(playerLengthValue - targetLengthValue);
-                float colorDiff = (Mathf.Abs(playerColorValue.r - targetColorValue.r) +
-                                   Mathf.Abs(playerColorValue.g - targetColorValue.g) +
-                                   Mathf.Abs(playerColorValue.b - targetColorValue.b)) / 3f;
-
-                float lengthScore = 1f - Mathf.Clamp01(lengthDiff / Mathf.Max(GetDifficultyLengthTolerance(), 0.0001f));
-                float paintScore = 1f - Mathf.Clamp01(colorDiff / Mathf.Max(GetDifficultyColorTolerance(), 0.0001f));
-                float presenceScore = Mathf.Clamp01(playerLengthValue / Mathf.Max(targetLengthValue, 0.0001f));
-                float distance01 = radius > 0 ? new Vector2(offsetX, offsetY).magnitude / radius : 0f;
-                float proximityScore = Mathf.Lerp(1f, GetDifficultyEdgeProximityScore(), Mathf.Clamp01(distance01));
-                float currentLengthWeight = GetDifficultyLengthWeight();
-                float currentColorWeight = GetDifficultyColorWeight();
-                float totalMapWeight = Mathf.Max(currentLengthWeight + currentColorWeight, 0.0001f);
-                float combinedScore = Mathf.Clamp01((lengthScore * currentLengthWeight + paintScore * currentColorWeight) / totalMapWeight);
-
-                bestScore = Mathf.Max(bestScore, combinedScore * presenceScore * proximityScore);
-            }
+            comparisonShader = Resources.Load<ComputeShader>(comparisonShaderResourceName);
         }
 
-        return bestScore;
+        if (comparisonShader == null)
+        {
+            Debug.LogError("Could not load ForgivingChallengeComparison compute shader from Resources.");
+            SetScoreText("Missing compute shader", "Rank: --");
+            return false;
+        }
+
+        if (comparisonKernel < 0)
+        {
+            comparisonKernel = comparisonShader.FindKernel("CompareForgivingChallenge");
+        }
+
+        return comparisonKernel >= 0;
+    }
+
+    private void PrepareComparisonBuffers(int groupCount)
+    {
+        if (groupScoreBuffer == null || groupWeightBuffer == null || changeFlagBuffer == null || comparisonGroupCount != groupCount)
+        {
+            ReleaseComparisonBuffers();
+
+            groupScoreBuffer = new ComputeBuffer(groupCount, sizeof(uint), ComputeBufferType.Structured);
+            groupWeightBuffer = new ComputeBuffer(groupCount, sizeof(uint), ComputeBufferType.Structured);
+            changeFlagBuffer = new ComputeBuffer(1, sizeof(uint), ComputeBufferType.Structured);
+            comparisonGroupCount = groupCount;
+        }
+
+        groupScoreBuffer.SetData(new uint[groupCount]);
+        groupWeightBuffer.SetData(new uint[groupCount]);
+        changeFlagBuffer.SetData(new uint[] { 0u });
+    }
+
+    private void ReleaseComparisonBuffers()
+    {
+        if (groupScoreBuffer != null)
+        {
+            groupScoreBuffer.Release();
+            groupScoreBuffer = null;
+        }
+
+        if (groupWeightBuffer != null)
+        {
+            groupWeightBuffer.Release();
+            groupWeightBuffer = null;
+        }
+
+        if (changeFlagBuffer != null)
+        {
+            changeFlagBuffer.Release();
+            changeFlagBuffer = null;
+        }
+
+        comparisonGroupCount = 0;
     }
 
     private int GetDifficultyStrokeCount()
@@ -736,9 +758,9 @@ public class FinalProjectChallengeController : MonoBehaviour
         switch (currentDifficulty)
         {
             case ChallengeDifficulty.Easy:
-                return 18;
+                return 12;
             case ChallengeDifficulty.Medium:
-                return 14;
+                return 10;
             default:
                 return nearbyMatchRadiusPixels;
         }
@@ -788,9 +810,9 @@ public class FinalProjectChallengeController : MonoBehaviour
         switch (currentDifficulty)
         {
             case ChallengeDifficulty.Easy:
-                return 0.005f;
+                return 0.0005f;
             case ChallengeDifficulty.Medium:
-                return 0.01f;
+                return 0.0025f;
             default:
                 return activePlayerThreshold;
         }
@@ -835,41 +857,30 @@ public class FinalProjectChallengeController : MonoBehaviour
         }
     }
 
-    private bool HasPlayerChanged(Color[] playerLengthColors, Color[] playerColorColors)
+    private float GetDifficultyShapeForgiveness()
     {
-        for (int i = 0; i < playerLengthColors.Length; i++)
+        switch (currentDifficulty)
         {
-            Color playerColorValue = playerColorColors[i];
-            if (Mathf.Abs(playerLengthColors[i].r) > 0.0001f ||
-                Mathf.Abs(playerColorValue.r - 1f) > 0.0001f ||
-                Mathf.Abs(playerColorValue.g - 1f) > 0.0001f ||
-                Mathf.Abs(playerColorValue.b - 1f) > 0.0001f)
-            {
-                return true;
-            }
+            case ChallengeDifficulty.Easy:
+                return 0.55f;
+            case ChallengeDifficulty.Medium:
+                return 0.35f;
+            default:
+                return 0f;
         }
-
-        return false;
     }
 
-    private Texture2D ReadTexture(Texture source, int size, bool linear)
+    private float GetDifficultyCoverageReference()
     {
-        RenderTexture temp = RenderTexture.GetTemporary(size, size, 0, RenderTextureFormat.ARGB32);
-        temp.wrapMode = TextureWrapMode.Clamp;
-        temp.filterMode = FilterMode.Bilinear;
-        Graphics.Blit(source, temp);
-
-        RenderTexture previous = RenderTexture.active;
-        RenderTexture.active = temp;
-
-        Texture2D texture = new Texture2D(size, size, TextureFormat.RGBA32, false, linear);
-        texture.ReadPixels(new Rect(0, 0, size, size), 0, 0, false);
-        texture.Apply(false, false);
-
-        RenderTexture.active = previous;
-        RenderTexture.ReleaseTemporary(temp);
-
-        return texture;
+        switch (currentDifficulty)
+        {
+            case ChallengeDifficulty.Easy:
+                return 0.25f;
+            case ChallengeDifficulty.Medium:
+                return 0.35f;
+            default:
+                return 1f;
+        }
     }
 
     private string EvaluateRank(float score01)

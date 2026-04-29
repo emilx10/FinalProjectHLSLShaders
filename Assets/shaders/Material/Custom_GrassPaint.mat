@@ -35,7 +35,7 @@ Material:
     m_Floats:
     - _BrushFalloff: 0.5
     - _BrushRadius: 0.0925
-    - _BrushStrength: 0.0026892035
+    - _BrushStrength: 0.0029365048
     - _Hardness: 0.5
     - _HeightSmoothness: 0.75
     - _HeightStepLimit: 0.08
@@ -46,7 +46,7 @@ Material:
     - _PatternSoftness: 0.08
     m_Colors:
     - _BrushColor: {r: 1, g: 0, b: 0, a: 1}
-    - _BrushUV: {r: 0.3253285, g: 0.4675232, b: 0, a: 0}
+    - _BrushUV: {r: 0.20045309, g: 0.75991213, b: 0, a: 0}
     - _SecondaryBrushColor: {r: 1, g: 1, b: 1, a: 1}
   m_BuildTextureStacks: []
   m_AllowLocking: 1
